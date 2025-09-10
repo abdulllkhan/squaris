@@ -11,6 +11,7 @@ export class GameScene extends Phaser.Scene {
   private squareLabels: Map<number, Phaser.GameObjects.Text> = new Map();
   private inventorySquares: Phaser.GameObjects.Rectangle[] = [];
   private draggedSquare: Phaser.GameObjects.Rectangle | null = null;
+  private placementPreview: Phaser.GameObjects.Rectangle | null = null;
   private timerText!: Phaser.GameObjects.Text;
   private completionText!: Phaser.GameObjects.Text;
 
@@ -64,8 +65,8 @@ export class GameScene extends Phaser.Scene {
       height * this.cellSize
     );
     
-    // Create grid lines
-    this.containerGraphics.lineStyle(1, 0x404040);
+    // Create grid lines (more visible for debugging)
+    this.containerGraphics.lineStyle(1, 0x555555);
     for (let x = 0; x <= width; x++) {
       this.containerGraphics.moveTo(this.containerX + x * this.cellSize, this.containerY);
       this.containerGraphics.lineTo(this.containerX + x * this.cellSize, this.containerY + height * this.cellSize);
@@ -75,6 +76,11 @@ export class GameScene extends Phaser.Scene {
       this.containerGraphics.lineTo(this.containerX + width * this.cellSize, this.containerY + y * this.cellSize);
     }
     this.containerGraphics.strokePath();
+    
+    // Debug info
+    console.log(`Container at ${this.containerX}, ${this.containerY}, cell size: ${this.cellSize}`);
+    console.log(`Game size: ${this.sys.game.config.width} x ${this.sys.game.config.height}`);
+    console.log(`Container size: ${width} x ${height} cells = ${width * this.cellSize} x ${height * this.cellSize} pixels`);
   }
 
   private createInventorySquares() {
@@ -148,6 +154,13 @@ export class GameScene extends Phaser.Scene {
       this.draggedSquare = gameObject;
       gameObject.setAlpha(0.7); // Make semi-transparent instead of tint
       gameObject.setDepth(100); // Bring to front
+      
+      // Create placement preview
+      const size = gameObject.getData('size') as number;
+      this.placementPreview = this.add.rectangle(0, 0, size * this.cellSize, size * this.cellSize, 0x00ff00);
+      this.placementPreview.setAlpha(0.3);
+      this.placementPreview.setVisible(false);
+      this.placementPreview.setDepth(99);
     });
 
     this.input.on('drag', (pointer: Phaser.Input.Pointer, gameObject: Phaser.GameObjects.Rectangle, dragX: number, dragY: number) => {
@@ -161,70 +174,185 @@ export class GameScene extends Phaser.Scene {
         label.x = dragX;
         label.y = dragY;
       }
+      
+      // Show placement preview if over container
+      if (this.placementPreview) {
+        const size = gameObject.getData('size') as number;
+        
+        // CRITICAL FIX: dragX/dragY is the CENTER of the square, not top-left
+        // We need to convert center position to top-left for grid calculation
+        const halfSize = (size * this.cellSize) / 2;
+        const topLeftX = dragX - halfSize;
+        const topLeftY = dragY - halfSize;
+        
+        // Calculate grid position from top-left corner
+        const relativeX = topLeftX - this.containerX;
+        const relativeY = topLeftY - this.containerY;
+        
+        // Calculate which grid cell the top-left corner is closest to
+        let gridX = Math.round(relativeX / this.cellSize);
+        let gridY = Math.round(relativeY / this.cellSize);
+        
+        const containerWidth = this.gameState.puzzle.container.width;
+        const containerHeight = this.gameState.puzzle.container.height;
+        
+        // Clamp to valid grid positions to prevent out-of-bounds
+        gridX = Math.max(0, Math.min(gridX, containerWidth - size));
+        gridY = Math.max(0, Math.min(gridY, containerHeight - size));
+        
+        // Try nearby positions if the preferred position is blocked
+        const square = this.gameState.puzzle.squares.find(s => s.id === squareId)!;
+        let canPlace = GameLogic.canPlaceSquare(this.gameState, square, gridX, gridY);
+        
+        // If can't place at preferred position, try nearby positions (within 1 cell)
+        if (!canPlace) {
+          const originalGridX = gridX;
+          const originalGridY = gridY;
+          
+          for (let offsetY = -1; offsetY <= 1 && !canPlace; offsetY++) {
+            for (let offsetX = -1; offsetX <= 1 && !canPlace; offsetX++) {
+              const testX = Math.max(0, Math.min(originalGridX + offsetX, containerWidth - size));
+              const testY = Math.max(0, Math.min(originalGridY + offsetY, containerHeight - size));
+              
+              if (GameLogic.canPlaceSquare(this.gameState, square, testX, testY)) {
+                gridX = testX;
+                gridY = testY;
+                canPlace = true;
+              }
+            }
+          }
+        }
+        
+        // Check if over container area (using top-left position)
+        const isOverContainer = topLeftX >= (this.containerX - this.cellSize) && 
+                               topLeftY >= (this.containerY - this.cellSize) && 
+                               topLeftX <= (this.containerX + (containerWidth + 1) * this.cellSize) && 
+                               topLeftY <= (this.containerY + (containerHeight + 1) * this.cellSize);
+        
+        if (isOverContainer) {
+          this.placementPreview.setVisible(true);
+          // Calculate the same way as actual placement
+          const previewX = this.containerX + gridX * this.cellSize + (size * this.cellSize) / 2;
+          const previewY = this.containerY + gridY * this.cellSize + (size * this.cellSize) / 2;
+          
+          this.placementPreview.x = previewX;
+          this.placementPreview.y = previewY;
+          this.placementPreview.setFillStyle(canPlace ? 0x00ff00 : 0xff0000);
+          
+          console.log(`Preview: Center(${dragX.toFixed(0)},${dragY.toFixed(0)}) -> TopLeft(${topLeftX.toFixed(0)},${topLeftY.toFixed(0)}) -> Grid(${gridX},${gridY}) -> Final(${previewX.toFixed(0)},${previewY.toFixed(0)})`);
+        } else {
+          this.placementPreview.setVisible(false);
+        }
+      }
     });
 
     this.input.on('dragend', (pointer: Phaser.Input.Pointer, gameObject: Phaser.GameObjects.Rectangle) => {
-      console.log('Drag ended at:', pointer.x, pointer.y);
+      console.log('Drag ended at:', gameObject.x, gameObject.y);
       const squareId = gameObject.getData('squareId') as number;
       const size = gameObject.getData('size') as number;
       
-      // Calculate grid position
-      const gridX = Math.floor((pointer.x - this.containerX) / this.cellSize);
-      const gridY = Math.floor((pointer.y - this.containerY) / this.cellSize);
+      // CRITICAL FIX: gameObject.x/y is the CENTER, convert to top-left
+      const halfSize = (size * this.cellSize) / 2;
+      const topLeftX = gameObject.x - halfSize;
+      const topLeftY = gameObject.y - halfSize;
       
-      console.log('Grid position:', gridX, gridY);
-      console.log('Container bounds:', this.containerX, this.containerY, this.gameState.puzzle.container.width, this.gameState.puzzle.container.height);
+      // Calculate grid position from top-left corner
+      const relativeX = topLeftX - this.containerX;
+      const relativeY = topLeftY - this.containerY;
       
-      // Check if dropped inside container area
-      if (gridX >= 0 && gridY >= 0 && 
-          gridX < this.gameState.puzzle.container.width && 
-          gridY < this.gameState.puzzle.container.height) {
+      // Calculate which grid cell the top-left corner is closest to
+      let gridX = Math.round(relativeX / this.cellSize);
+      let gridY = Math.round(relativeY / this.cellSize);
+      
+      const containerWidth = this.gameState.puzzle.container.width;
+      const containerHeight = this.gameState.puzzle.container.height;
+      
+      // Clamp to valid positions
+      gridX = Math.max(0, Math.min(gridX, containerWidth - size));
+      gridY = Math.max(0, Math.min(gridY, containerHeight - size));
+      
+      console.log('Initial grid position:', gridX, gridY);
+      
+      // Try to find the best placement position (same logic as preview)
+      const square = this.gameState.puzzle.squares.find(s => s.id === squareId)!;
+      let canPlace = GameLogic.canPlaceSquare(this.gameState, square, gridX, gridY);
+      
+      // If can't place at preferred position, try nearby positions
+      if (!canPlace) {
+        const originalGridX = gridX;
+        const originalGridY = gridY;
         
-        // Check if position is valid
-        const square = this.gameState.puzzle.squares.find(s => s.id === squareId)!;
-        if (GameLogic.canPlaceSquare(this.gameState, square, gridX, gridY)) {
-          // Place the square
-          this.gameState = GameLogic.placeSquare(this.gameState, squareId, gridX, gridY);
-          
-          // Update sprite position to snap to grid
-          const newX = this.containerX + (gridX + size / 2) * this.cellSize;
-          const newY = this.containerY + (gridY + size / 2) * this.cellSize;
-          gameObject.x = newX;
-          gameObject.y = newY;
-          
-          // Update label position
-          const label = this.squareLabels.get(squareId);
-          if (label) {
-            label.x = newX;
-            label.y = newY;
+        for (let offsetY = -1; offsetY <= 1 && !canPlace; offsetY++) {
+          for (let offsetX = -1; offsetX <= 1 && !canPlace; offsetX++) {
+            const testX = Math.max(0, Math.min(originalGridX + offsetX, containerWidth - size));
+            const testY = Math.max(0, Math.min(originalGridY + offsetY, containerHeight - size));
+            
+            if (GameLogic.canPlaceSquare(this.gameState, square, testX, testY)) {
+              gridX = testX;
+              gridY = testY;
+              canPlace = true;
+              console.log(`Found alternative position: ${testX}, ${testY}`);
+            }
           }
-          
-          // Remove from inventory (temporarily)
-          const inventoryIndex = this.inventorySquares.indexOf(gameObject);
-          if (inventoryIndex > -1) {
-            this.inventorySquares.splice(inventoryIndex, 1);
-          }
-          
-          // Reorganize remaining inventory squares
-          this.reorganizeInventory();
-          
-          // Check for completion
-          if (GameLogic.isPuzzleCompleted(this.gameState)) {
-            this.onPuzzleCompleted();
-          }
-          
-          console.log('Square placed successfully!');
-        } else {
-          console.log('Invalid placement - returning to inventory');
-          this.returnSquareToInventory(gameObject, squareId);
         }
+      }
+      
+      console.log('Final grid position:', gridX, gridY, 'Can place:', canPlace);
+      
+      // Check if dropped near container (using top-left position)
+      const isNearContainer = topLeftX >= (this.containerX - this.cellSize * 2) && 
+                              topLeftY >= (this.containerY - this.cellSize * 2) && 
+                              topLeftX <= (this.containerX + (containerWidth + 2) * this.cellSize) && 
+                              topLeftY <= (this.containerY + (containerHeight + 2) * this.cellSize);
+      
+      if (isNearContainer && canPlace) {
+        // Place the square
+        this.gameState = GameLogic.placeSquare(this.gameState, squareId, gridX, gridY);
+        
+        // Update sprite position to snap to grid
+        const newX = this.containerX + gridX * this.cellSize + (size * this.cellSize) / 2;
+        const newY = this.containerY + gridY * this.cellSize + (size * this.cellSize) / 2;
+        gameObject.x = newX;
+        gameObject.y = newY;
+        
+        console.log(`Placement: Center(${gameObject.x.toFixed(0)},${gameObject.y.toFixed(0)}) -> TopLeft(${topLeftX.toFixed(0)},${topLeftY.toFixed(0)}) -> Grid(${gridX},${gridY}) -> Final(${newX.toFixed(0)},${newY.toFixed(0)})`);
+        
+        // Update label position
+        const label = this.squareLabels.get(squareId);
+        if (label) {
+          label.x = newX;
+          label.y = newY;
+        }
+        
+        // Remove from inventory (temporarily)
+        const inventoryIndex = this.inventorySquares.indexOf(gameObject);
+        if (inventoryIndex > -1) {
+          this.inventorySquares.splice(inventoryIndex, 1);
+        }
+        
+        // Reorganize remaining inventory squares
+        this.reorganizeInventory();
+        
+        // Check for completion
+        if (GameLogic.isPuzzleCompleted(this.gameState)) {
+          this.onPuzzleCompleted();
+        }
+        
+        console.log('Square placed successfully at:', gridX, gridY);
       } else {
-        console.log('Dropped outside container - returning to inventory');
+        console.log('Cannot place - returning to inventory');
         this.returnSquareToInventory(gameObject, squareId);
       }
       
       gameObject.setAlpha(1.0); // Reset transparency
       gameObject.setDepth(1); // Reset depth
+      
+      // Clean up placement preview
+      if (this.placementPreview) {
+        this.placementPreview.destroy();
+        this.placementPreview = null;
+      }
+      
       this.draggedSquare = null;
     });
     
