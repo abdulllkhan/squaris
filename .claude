@@ -152,6 +152,14 @@ A daily puzzle game where players fill a container (square/rectangle) using vari
 - Consider accessibility features (colorblind-friendly, keyboard navigation)
 - Optimize for quick loading and offline capability
 
+## UI/UX Design Requirements
+- **Inventory System**: MUST be horizontally scrollable single-row layout
+- **Auto-reorganization**: When blocks are removed from game area and returned to inventory, remaining blocks automatically slide to fill gaps
+- **Fixed positioning**: Inventory blocks should NOT be placed randomly - they must maintain organized horizontal layout
+- **Visual consistency**: Blocks return to their designated horizontal positions in inventory
+- **Smooth animations**: Use tweening for reorganization movements (200ms duration recommended)
+- **No multi-row wrapping**: Inventory should always be a single horizontal line, never wrap to multiple rows
+
 ## Technology Stack Decisions
 - **Framework**: Devvit Web (React-based)
 - **Deployment**: Reddit Developer Platform hosting
