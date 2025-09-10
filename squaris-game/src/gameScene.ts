@@ -473,9 +473,11 @@ export class GameScene extends Phaser.Scene {
       'Puzzle Completed!',
       {
         fontSize: '48px',
-        color: '#00ff00'
+        color: '#ff4500', // Reddit orange - same as Squaris logo
+        stroke: '#000000',
+        strokeThickness: 4
       }
-    ).setOrigin(0.5).setVisible(false);
+    ).setOrigin(0.5).setVisible(false).setDepth(1000); // High depth to appear on top
   }
 
   private startTimer() {
