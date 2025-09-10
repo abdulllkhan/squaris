@@ -167,6 +167,21 @@ A daily puzzle game where players fill a container (square/rectangle) using vari
 - Optimize for both desktop and mobile Reddit experience
 - Leverage Reddit's built-in user authentication and data storage
 
+## Devvit Setup Instructions
+1. **Prerequisites**: Node.js v22.2.0+, Git, Reddit developer account
+2. **Quick Start**: `npm create devvit@latest --template=phaser`
+3. **Development**: `npm run dev` for local development
+4. **Testing**: `npm test` for running test suite
+5. **Deployment**: `npm run deploy` to upload to Reddit
+6. **Publishing**: `npm run launch` to publish for review
+
+## Recommended Tech Stack
+- **Base**: Devvit Phaser.js template
+- **Game Engine**: Phaser.js for 2D puzzle mechanics
+- **Build System**: Vite for fast development and builds
+- **Language**: TypeScript for type safety
+- **Testing**: Jest + Testing Library for comprehensive test coverage
+
 ## Hackathon Submission Requirements
 - Deploy to Devvit platform with unique app link
 - Create test subreddit with game installation
