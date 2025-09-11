@@ -134,16 +134,29 @@ export class GameScene extends Phaser.Scene {
 
   private createInventorySquares() {
     const unplacedSquares = GameLogic.getUnplacedSquares(this.gameState);
-    const startX = 50;
     const startY = this.containerY + (this.gameState.puzzle.container.height + 2) * this.cellSize;
+    
+    // Calculate total width needed for all squares
+    const spacing = 10;
+    const totalWidth = unplacedSquares.reduce((total, square, index) => {
+      return total + (square.size * this.cellSize) + (index > 0 ? spacing : 0);
+    }, 0);
+    
+    // Center the inventory horizontally
+    const gameWidth = this.sys.game.config.width as number;
+    const startX = (gameWidth - totalWidth) / 2;
     
     // Clear existing inventory
     this.inventorySquares.forEach(sprite => sprite.destroy());
     this.inventorySquares = [];
     
+    let currentX = startX;
     unplacedSquares.forEach((square, index) => {
-      const x = startX + index * (this.cellSize * 3 + 10);
+      const squareWidth = square.size * this.cellSize;
+      const x = currentX + squareWidth / 2;
       const y = startY;
+      
+      currentX += squareWidth + spacing;
       
       const squareSprite = this.add.rectangle(
         x,
@@ -471,7 +484,13 @@ export class GameScene extends Phaser.Scene {
         squareSprite.setAlpha(1.0);
         squareSprite.setData('squareId', square.id);
         squareSprite.setData('size', square.size);
-        squareSprite.setInteractive({ useHandCursor: true });
+        squareSprite.setInteractive({ 
+          draggable: true,
+          useHandCursor: true 
+        });
+        
+        // Make sure placed squares are draggable
+        this.input.setDraggable(squareSprite);
         
         // Add enhanced size label
         const label = this.add.text(
@@ -499,6 +518,21 @@ export class GameScene extends Phaser.Scene {
     this.input.on('dragstart', (pointer: Phaser.Input.Pointer, gameObject: Phaser.GameObjects.Rectangle) => {
       console.log('Drag started for square:', gameObject.getData('squareId'));
       this.draggedSquare = gameObject;
+      const squareId = gameObject.getData('squareId') as number;
+      
+      // If this is a placed square (not in inventory), remove it from game state
+      if (!this.inventorySquares.includes(gameObject)) {
+        console.log('Removing placed square from game state during drag:', squareId);
+        this.saveGameState();
+        this.gameState = GameLogic.removeSquare(this.gameState, squareId);
+        this.moveCounter++;
+        this.updateUI();
+        
+        // Add it to inventory array so it can be placed again
+        if (!this.inventorySquares.includes(gameObject)) {
+          this.inventorySquares.push(gameObject);
+        }
+      }
       
       // Enhanced drag start effects
       gameObject.setAlpha(0.8);
@@ -639,6 +673,8 @@ export class GameScene extends Phaser.Scene {
       const square = this.gameState.puzzle.squares.find(s => s.id === squareId)!;
       let canPlace = GameLogic.canPlaceSquare(this.gameState, square, gridX, gridY);
       
+      console.log(`Placement check for square ${squareId} (${square.size}x${square.size}) at grid(${gridX},${gridY}): ${canPlace}`);
+      
       // If can't place at preferred position, try nearby positions
       if (!canPlace) {
         const originalGridX = gridX;
@@ -661,11 +697,15 @@ export class GameScene extends Phaser.Scene {
       
       console.log('Final grid position:', gridX, gridY, 'Can place:', canPlace);
       
-      // Check if dropped near container (using top-left position)
+      // Check if dropped near container (using top-left position) - be more generous with bounds
       const isNearContainer = topLeftX >= (this.containerX - this.cellSize * 2) && 
                               topLeftY >= (this.containerY - this.cellSize * 2) && 
                               topLeftX <= (this.containerX + (containerWidth + 2) * this.cellSize) && 
                               topLeftY <= (this.containerY + (containerHeight + 2) * this.cellSize);
+      
+      console.log(`Drop check: Near container: ${isNearContainer}, Can place: ${canPlace}`);
+      console.log(`Position: topLeft(${topLeftX.toFixed(0)},${topLeftY.toFixed(0)}), grid(${gridX},${gridY})`);
+      console.log(`Container bounds: X(${this.containerX}-${this.containerX + containerWidth * this.cellSize}), Y(${this.containerY}-${this.containerY + containerHeight * this.cellSize})`);
       
       if (isNearContainer && canPlace) {
         // Save state before placing for undo functionality
@@ -708,10 +748,11 @@ export class GameScene extends Phaser.Scene {
         // Update UI
         this.updateUI();
         
-        // Remove from inventory (temporarily)
+        // Remove from inventory array since it's now placed
         const inventoryIndex = this.inventorySquares.indexOf(gameObject);
         if (inventoryIndex > -1) {
           this.inventorySquares.splice(inventoryIndex, 1);
+          console.log(`Removed square ${squareId} from inventory array, now placed in game`);
         }
         
         // Reorganize remaining inventory squares
@@ -768,17 +809,32 @@ export class GameScene extends Phaser.Scene {
       this.draggedSquare = null;
     });
     
-    // Add click handler for removing placed squares
-    this.input.on('pointerdown', (_pointer: Phaser.Input.Pointer, gameObjects: Phaser.GameObjects.GameObject[]) => {
-      console.log('Pointer down at:', _pointer.x, _pointer.y);
-      
-      if (gameObjects.length > 0) {
+    // Track if a drag is happening to distinguish from click
+    let isDragging = false;
+    let dragStartTime = 0;
+    
+    this.input.on('pointerdown', (_pointer: Phaser.Input.Pointer) => {
+      isDragging = false;
+      dragStartTime = Date.now();
+    });
+    
+    this.input.on('pointermove', (_pointer: Phaser.Input.Pointer) => {
+      // If pointer moves significantly, it's a drag
+      if (Date.now() - dragStartTime > 100) {
+        isDragging = true;
+      }
+    });
+    
+    // Only handle click (not drag) for removing placed squares
+    this.input.on('pointerup', (_pointer: Phaser.Input.Pointer, gameObjects: Phaser.GameObjects.GameObject[]) => {
+      // Only process as click if it wasn't a drag and was quick
+      if (!isDragging && Date.now() - dragStartTime < 300 && gameObjects.length > 0) {
         const clickedObject = gameObjects[0] as Phaser.GameObjects.Rectangle;
         const squareId = clickedObject.getData('squareId');
         
         if (squareId && !this.inventorySquares.includes(clickedObject)) {
-          // This is a placed square, remove it back to inventory
-          console.log('Removing placed square:', squareId);
+          // This is a placed square, remove it back to inventory on quick click
+          console.log('Removing placed square via click:', squareId);
           
           // Save state for undo
           this.saveGameState();
@@ -789,6 +845,9 @@ export class GameScene extends Phaser.Scene {
           this.returnSquareToInventory(clickedObject, squareId);
         }
       }
+      
+      // Reset drag tracking
+      isDragging = false;
     });
   }
 
@@ -833,7 +892,6 @@ export class GameScene extends Phaser.Scene {
     // Push away overlapping blocks
     const size = gameObject.getData('size') as number;
     const squareWidth = size * this.cellSize;
-    const minDistance = squareWidth + 15; // Minimum spacing
     
     this.inventorySquares.forEach(otherSquare => {
       if (otherSquare !== gameObject) {
@@ -877,7 +935,6 @@ export class GameScene extends Phaser.Scene {
   }
 
   private reorganizeInventory() {
-    const startX = 50;
     const startY = this.containerY + (this.gameState.puzzle.container.height + 2) * this.cellSize;
     
     // Sort inventory squares by their square ID to maintain consistent order
@@ -887,10 +944,27 @@ export class GameScene extends Phaser.Scene {
       return idA - idB;
     });
     
-    // Animate each square to its new position in a single row
+    // Calculate total width needed for reorganized squares
+    const spacing = 10;
+    const totalWidth = this.inventorySquares.reduce((total, sprite, index) => {
+      const size = sprite.getData('size') as number;
+      const squareWidth = size * this.cellSize;
+      return total + squareWidth + (index > 0 ? spacing : 0);
+    }, 0);
+    
+    // Center the reorganized inventory horizontally
+    const gameWidth = this.sys.game.config.width as number;
+    const startX = (gameWidth - totalWidth) / 2;
+    
+    // Animate each square to its new centered position
+    let currentX = startX;
     this.inventorySquares.forEach((sprite, index) => {
-      const newX = startX + index * (this.cellSize * 3 + 10);
+      const size = sprite.getData('size') as number;
+      const squareWidth = size * this.cellSize;
+      const newX = currentX + squareWidth / 2;
       const newY = startY;
+      
+      currentX += squareWidth + spacing;
       
       // Update stored original position
       sprite.setData('originalX', newX);
