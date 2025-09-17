@@ -23,7 +23,9 @@ export class GameScene extends Phaser.Scene {
   private hintButton!: Phaser.GameObjects.Rectangle;
   private gameHistory: GameState[] = [];
   private particleEmitter!: Phaser.GameObjects.Particles.ParticleEmitter;
-  private soundEnabled: boolean = true;
+  private soundEnabled: boolean = localStorage.getItem('soundEnabled') !== 'false';
+  private showTimer: boolean = localStorage.getItem('showTimer') !== 'false';
+  private difficulty: 'easy' | 'medium' | 'difficult' = 'medium';
   private audioContext!: AudioContext;
 
   constructor() {
@@ -35,10 +37,12 @@ export class GameScene extends Phaser.Scene {
     this.load.image('particle', 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNkYPhfDwAChwGA60e6kgAAAABJRU5ErkJggg==');
   }
 
-  create() {
-    // Generate today's puzzle
+  create(data?: { difficulty?: 'easy' | 'medium' | 'difficult' }) {
+    // Get difficulty from scene data or use default
+    this.difficulty = data?.difficulty || 'medium';
+    // Generate puzzle based on difficulty
     const today = new Date().toISOString().split('T')[0];
-    const puzzle = PuzzleGenerator.generateDailyPuzzle(today);
+    const puzzle = PuzzleGenerator.generateDailyPuzzle(today, this.difficulty);
     this.gameState = GameLogic.createInitialGameState(puzzle);
 
     // Set up the game layout
@@ -239,9 +243,27 @@ export class GameScene extends Phaser.Scene {
 
   private createGameControls() {
     const gameWidth = this.sys.game.config.width as number;
-    
+
     // Create control panel container in top right
     this.gameControls = this.add.container(gameWidth - 120, 30);
+
+    // Back to menu button
+    const menuBtn = this.add.rectangle(-100, 0, 80, 30, 0x4a4a4a)
+      .setStrokeStyle(2, 0x666666)
+      .setInteractive({ useHandCursor: true })
+      .on('pointerdown', () => {
+        this.scene.start('MainMenuScene');
+      })
+      .on('pointerover', () => menuBtn.setFillStyle(0x5a5a5a))
+      .on('pointerout', () => menuBtn.setFillStyle(0x4a4a4a));
+
+    const menuText = this.add.text(-100, 0, 'MENU', {
+      fontSize: '14px',
+      color: '#ffffff',
+      fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif',
+      fontStyle: 'bold',
+      resolution: 2
+    }).setOrigin(0.5);
     
     // Undo button
     this.undoButton = this.add.rectangle(0, 0, 80, 30, 0x4a4a4a)
@@ -291,7 +313,7 @@ export class GameScene extends Phaser.Scene {
       resolution: 2
     }).setOrigin(0.5);
     
-    this.gameControls.add([this.undoButton, undoText, this.restartButton, restartText, this.hintButton, hintText]);
+    this.gameControls.add([menuBtn, menuText, this.undoButton, undoText, this.restartButton, restartText, this.hintButton, hintText]);
   }
 
   private initializeAudio() {
@@ -381,9 +403,9 @@ export class GameScene extends Phaser.Scene {
   }
 
   private restartGame(_pointer?: Phaser.Input.Pointer) {
-    // Reset game state
+    // Reset game state with current difficulty
     const today = new Date().toISOString().split('T')[0];
-    const puzzle = PuzzleGenerator.generateDailyPuzzle(today);
+    const puzzle = PuzzleGenerator.generateDailyPuzzle(today, this.difficulty);
     this.gameState = GameLogic.createInitialGameState(puzzle);
     this.moveCounter = 0;
     this.gameHistory = [];
@@ -1011,7 +1033,7 @@ export class GameScene extends Phaser.Scene {
   }
 
   private createUI() {
-    // Timer
+    // Timer (check settings)
     this.timerText = this.add.text(20, 20, 'Time: 00:00', {
       fontSize: '26px',
       color: '#ffffff',
@@ -1021,6 +1043,9 @@ export class GameScene extends Phaser.Scene {
       strokeThickness: 2,
       resolution: 2
     });
+
+    // Show/hide timer based on settings
+    this.timerText.setVisible(this.showTimer);
     
     // Move counter
     this.moveCounterText = this.add.text(20, 55, 'Moves: 0', {

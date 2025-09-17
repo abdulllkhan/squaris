@@ -9,19 +9,20 @@ export class PuzzleGenerator {
     };
   }
 
-  static generateDailyPuzzle(date: string): PuzzleData {
+  static generateDailyPuzzle(date: string, difficulty?: 'easy' | 'medium' | 'difficult'): PuzzleData {
     const seed = this.dateToSeed(date);
     const random = this.seededRandom(seed);
-    
-    // Generate container with 1.5:1 max aspect ratio
-    const container = this.generateContainer(random);
-    
-    // Determine difficulty (70% medium, 15% easy, 15% difficult)
-    const difficultyRoll = random();
-    let difficulty: 'easy' | 'medium' | 'difficult';
-    if (difficultyRoll < 0.15) difficulty = 'easy';
-    else if (difficultyRoll < 0.85) difficulty = 'medium';
-    else difficulty = 'difficult';
+
+    // Generate container based on difficulty
+    const container = this.generateContainer(random, difficulty);
+
+    // Use provided difficulty or determine randomly
+    if (!difficulty) {
+      const difficultyRoll = random();
+      if (difficultyRoll < 0.15) difficulty = 'easy';
+      else if (difficultyRoll < 0.85) difficulty = 'medium';
+      else difficulty = 'difficult';
+    }
 
     // Generate squares using reverse construction
     const squares = this.reverseConstruction(container, difficulty, random);
@@ -44,10 +45,28 @@ export class PuzzleGenerator {
     return Math.abs(hash);
   }
 
-  private static generateContainer(random: () => number): Container {
-    // Generate container size between 6x4 and 12x8
-    const minSize = 4;
-    const maxSize = 8;
+  private static generateContainer(random: () => number, difficulty?: 'easy' | 'medium' | 'difficult'): Container {
+    // Generate container size based on difficulty
+    let minSize: number;
+    let maxSize: number;
+
+    switch (difficulty) {
+      case 'easy':
+        minSize = 4;
+        maxSize = 6;
+        break;
+      case 'medium':
+        minSize = 5;
+        maxSize = 7;
+        break;
+      case 'difficult':
+        minSize = 6;
+        maxSize = 8;
+        break;
+      default:
+        minSize = 4;
+        maxSize = 8;
+    }
     
     let width = Math.floor(random() * (maxSize - minSize + 1)) + minSize;
     let height = Math.floor(random() * (maxSize - minSize + 1)) + minSize;
