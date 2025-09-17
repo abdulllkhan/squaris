@@ -97,7 +97,7 @@ export class GameScene extends Phaser.Scene {
     );
     
     // Create enhanced grid lines with better visibility
-    this.containerGraphics.lineStyle(1, 0x555555, 0.6);
+    this.containerGraphics.lineStyle(1, 0x666666, 0.8);
     for (let x = 0; x <= width; x++) {
       this.containerGraphics.moveTo(this.containerX + x * this.cellSize, this.containerY);
       this.containerGraphics.lineTo(this.containerX + x * this.cellSize, this.containerY + height * this.cellSize);
@@ -201,12 +201,14 @@ export class GameScene extends Phaser.Scene {
         squareSprite.y,
         `${square.size}×${square.size}`,
         {
-          fontSize: square.size >= 3 ? '14px' : '12px',
+          fontSize: square.size >= 3 ? '16px' : '14px',
           color: '#ffffff',
-          fontFamily: 'Arial, sans-serif',
+          fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif',
           fontStyle: 'bold',
           stroke: '#000000',
-          strokeThickness: 2
+          strokeThickness: 3,
+          padding: { x: 4, y: 4 },
+          resolution: 2
         }
       ).setOrigin(0.5).setDepth(10);
       
@@ -250,8 +252,11 @@ export class GameScene extends Phaser.Scene {
       .on('pointerout', () => this.undoButton.setFillStyle(0x4a4a4a));
     
     const undoText = this.add.text(0, 0, 'UNDO', {
-      fontSize: '12px',
-      color: '#ffffff'
+      fontSize: '14px',
+      color: '#ffffff',
+      fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif',
+      fontStyle: 'bold',
+      resolution: 2
     }).setOrigin(0.5);
     
     // Restart button
@@ -263,8 +268,11 @@ export class GameScene extends Phaser.Scene {
       .on('pointerout', () => this.restartButton.setFillStyle(0x4a4a4a));
     
     const restartText = this.add.text(0, 40, 'RESTART', {
-      fontSize: '12px',
-      color: '#ffffff'
+      fontSize: '14px',
+      color: '#ffffff',
+      fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif',
+      fontStyle: 'bold',
+      resolution: 2
     }).setOrigin(0.5);
     
     // Hint button
@@ -276,8 +284,11 @@ export class GameScene extends Phaser.Scene {
       .on('pointerout', () => this.hintButton.setFillStyle(0x4a4a4a));
     
     const hintText = this.add.text(0, 80, 'HINT', {
-      fontSize: '12px',
-      color: '#ffffff'
+      fontSize: '14px',
+      color: '#ffffff',
+      fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif',
+      fontStyle: 'bold',
+      resolution: 2
     }).setOrigin(0.5);
     
     this.gameControls.add([this.undoButton, undoText, this.restartButton, restartText, this.hintButton, hintText]);
@@ -497,12 +508,14 @@ export class GameScene extends Phaser.Scene {
           x, y,
           `${square.size}×${square.size}`,
           {
-            fontSize: square.size >= 3 ? '14px' : '12px',
+            fontSize: square.size >= 3 ? '16px' : '14px',
             color: '#ffffff',
-            fontFamily: 'Arial, sans-serif',
+            fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif',
             fontStyle: 'bold',
             stroke: '#000000',
-            strokeThickness: 2
+            strokeThickness: 3,
+            padding: { x: 4, y: 4 },
+            resolution: 2
           }
         ).setOrigin(0.5).setDepth(10);
         
@@ -1000,34 +1013,42 @@ export class GameScene extends Phaser.Scene {
   private createUI() {
     // Timer
     this.timerText = this.add.text(20, 20, 'Time: 00:00', {
-      fontSize: '24px',
+      fontSize: '26px',
       color: '#ffffff',
-      fontFamily: 'Arial, sans-serif',
+      fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif',
+      fontStyle: 'bold',
       stroke: '#000000',
-      strokeThickness: 1
+      strokeThickness: 2,
+      resolution: 2
     });
     
     // Move counter
     this.moveCounterText = this.add.text(20, 55, 'Moves: 0', {
-      fontSize: '18px',
+      fontSize: '20px',
       color: '#ffffff',
-      fontFamily: 'Arial, sans-serif'
+      fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif',
+      fontStyle: 'bold',
+      resolution: 2
     });
     
     // Progress tracker
     const totalSquares = this.gameState.puzzle.squares.length;
     this.progressText = this.add.text(20, 80, `Progress: 0/${totalSquares}`, {
-      fontSize: '16px',
+      fontSize: '18px',
       color: '#888888',
-      fontFamily: 'Arial, sans-serif'
+      fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif',
+      fontStyle: 'bold',
+      resolution: 2
     });
     
     // Puzzle info
     const { difficulty, container } = this.gameState.puzzle;
     this.add.text(20, 105, `${difficulty.toUpperCase()} - ${container.width}×${container.height}`, {
-      fontSize: '16px',
+      fontSize: '18px',
       color: '#888888',
-      fontFamily: 'Arial, sans-serif'
+      fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif',
+      fontStyle: 'bold',
+      resolution: 2
     });
     
     // Completion text (hidden initially)
