@@ -1149,11 +1149,11 @@ export class GameScene extends Phaser.Scene {
 
     // Play completion sound
     this.playCompletionSound();
-    
+
     // Create celebration particle effects
     const gameWidth = this.sys.game.config.width as number;
     const gameHeight = this.sys.game.config.height as number;
-    
+
     // Multiple particle bursts
     for (let i = 0; i < 5; i++) {
       this.time.delayedCall(i * 200, () => {
@@ -1167,32 +1167,177 @@ export class GameScene extends Phaser.Scene {
         });
       });
     }
-    
-    // Update completion text with stats
+
+    // Create victory dialog
+    this.createVictoryDialog();
+
     const finalTime = GameLogic.getElapsedTime(this.gameState);
     const timeText = GameLogic.formatTime(finalTime);
-    this.completionText.setText(`Puzzle Completed!\nTime: ${timeText}\nMoves: ${this.moveCounter}`);
-    this.completionText.setVisible(true);
-    
-    // Enhanced completion animation
+    console.log(`Puzzle completed in: ${timeText} with ${this.moveCounter} moves`);
+  }
+
+  private createVictoryDialog() {
+    const gameWidth = this.sys.game.config.width as number;
+    const gameHeight = this.sys.game.config.height as number;
+
+    // Create overlay
+    const overlay = this.add.rectangle(gameWidth / 2, gameHeight / 2, gameWidth, gameHeight, 0x000000, 0.7)
+      .setInteractive()
+      .setDepth(1000);
+
+    // Victory container
+    const victoryContainer = this.add.container(gameWidth / 2, gameHeight / 2).setDepth(1001);
+
+    // Dialog panel with gradient effect
+    const panel = this.add.rectangle(0, 0, 450, 380, 0x2a2a2d)
+      .setStrokeStyle(4, 0xffd700); // Gold border for victory
+
+    // Trophy emoji or victory icon
+    const victoryIcon = this.add.text(0, -130, '🏆', {
+      fontSize: '64px'
+    }).setOrigin(0.5);
+
+    // Victory title
+    const title = this.add.text(0, -60, 'VICTORY!', {
+      fontSize: '42px',
+      color: '#ffd700',
+      fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif',
+      fontStyle: 'bold',
+      stroke: '#000000',
+      strokeThickness: 3
+    }).setOrigin(0.5);
+
+    // Get stats
+    const finalTime = GameLogic.getElapsedTime(this.gameState);
+    const timeText = GameLogic.formatTime(finalTime);
+
+    // Stats container
+    const statsY = 20;
+
+    // Time stat
+    const timeLabel = this.add.text(-100, statsY, 'Time:', {
+      fontSize: '20px',
+      color: '#888888',
+      fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif'
+    }).setOrigin(0, 0.5);
+
+    const timeValue = this.add.text(100, statsY, timeText, {
+      fontSize: '24px',
+      color: '#4ecdc4',
+      fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif',
+      fontStyle: 'bold'
+    }).setOrigin(1, 0.5);
+
+    // Moves stat
+    const movesLabel = this.add.text(-100, statsY + 40, 'Moves:', {
+      fontSize: '20px',
+      color: '#888888',
+      fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif'
+    }).setOrigin(0, 0.5);
+
+    const movesValue = this.add.text(100, statsY + 40, this.moveCounter.toString(), {
+      fontSize: '24px',
+      color: '#4ecdc4',
+      fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif',
+      fontStyle: 'bold'
+    }).setOrigin(1, 0.5);
+
+    // Difficulty stat
+    const diffLabel = this.add.text(-100, statsY + 80, 'Difficulty:', {
+      fontSize: '20px',
+      color: '#888888',
+      fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif'
+    }).setOrigin(0, 0.5);
+
+    const diffValue = this.add.text(100, statsY + 80, this.difficulty.toUpperCase(), {
+      fontSize: '24px',
+      color: '#4ecdc4',
+      fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif',
+      fontStyle: 'bold'
+    }).setOrigin(1, 0.5);
+
+    // Button container
+    const buttonY = 150;
+
+    // Play Again button
+    const playAgainBtn = this.add.rectangle(-80, buttonY, 140, 45, 0x4ecdc4)
+      .setStrokeStyle(2, 0x45b7d1)
+      .setInteractive({ useHandCursor: true })
+      .on('pointerover', () => playAgainBtn.setFillStyle(0x45b7d1))
+      .on('pointerout', () => playAgainBtn.setFillStyle(0x4ecdc4))
+      .on('pointerdown', () => {
+        this.playButtonSound();
+        overlay.destroy();
+        victoryContainer.destroy();
+        this.restartGame();
+      });
+
+    const playAgainText = this.add.text(-80, buttonY, 'PLAY AGAIN', {
+      fontSize: '16px',
+      color: '#000000',
+      fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif',
+      fontStyle: 'bold'
+    }).setOrigin(0.5);
+
+    // Menu button
+    const menuBtn = this.add.rectangle(80, buttonY, 140, 45, 0x666666)
+      .setStrokeStyle(2, 0x888888)
+      .setInteractive({ useHandCursor: true })
+      .on('pointerover', () => menuBtn.setFillStyle(0x777777))
+      .on('pointerout', () => menuBtn.setFillStyle(0x666666))
+      .on('pointerdown', () => {
+        this.playButtonSound();
+        this.scene.start('MainMenuScene');
+      });
+
+    const menuText = this.add.text(80, buttonY, 'MAIN MENU', {
+      fontSize: '16px',
+      color: '#ffffff',
+      fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif',
+      fontStyle: 'bold'
+    }).setOrigin(0.5);
+
+    // Add all elements to container
+    victoryContainer.add([
+      panel, victoryIcon, title,
+      timeLabel, timeValue,
+      movesLabel, movesValue,
+      diffLabel, diffValue,
+      playAgainBtn, playAgainText,
+      menuBtn, menuText
+    ]);
+
+    // Animate dialog entrance
+    victoryContainer.setScale(0);
+    victoryContainer.setAlpha(0);
+
     this.tweens.add({
-      targets: this.completionText,
-      scaleX: 1.3,
-      scaleY: 1.3,
-      duration: 800,
-      ease: 'Bounce.easeOut'
+      targets: victoryContainer,
+      scaleX: 1,
+      scaleY: 1,
+      alpha: 1,
+      duration: 500,
+      ease: 'Back.easeOut'
     });
-    
-    // Add pulsing effect
+
+    // Animate title
     this.tweens.add({
-      targets: this.completionText,
-      alpha: 0.8,
-      duration: 1000,
+      targets: title,
+      scaleX: 1.1,
+      scaleY: 1.1,
+      duration: 1500,
       yoyo: true,
       repeat: -1,
-      delay: 800
+      ease: 'Sine.easeInOut'
     });
-    
-    console.log(`Puzzle completed in: ${timeText} with ${this.moveCounter} moves`);
+
+    // Rotate trophy
+    this.tweens.add({
+      targets: victoryIcon,
+      angle: 360,
+      duration: 3000,
+      repeat: -1,
+      ease: 'Linear'
+    });
   }
 }
