@@ -516,11 +516,11 @@ export class MainMenuScene extends Phaser.Scene {
     const aboutContainer = this.add.container(width / 2, height / 2).setDepth(101);
 
     // Panel background
-    const panel = this.add.rectangle(0, 0, 550, 430, 0x0f0f0f)
+    const panel = this.add.rectangle(0, 0, 550, 480, 0x0f0f0f)
       .setStrokeStyle(5, 0x5a5a5d);
 
     // Title
-    const title = this.add.text(0, -170, 'ABOUT SQUARIS', {
+    const title = this.add.text(0, -200, 'ABOUT SQUARIS', {
       fontSize: '40px',
       color: '#ff7043',
       fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif',
@@ -548,23 +548,10 @@ export class MainMenuScene extends Phaser.Scene {
       'Good luck and have fun!'
     ];
 
-    const textY = -80;
-    aboutText.forEach((line, index) => {
-      const isHeader = line.includes(':');
-      this.add.text(0, textY + (index * 24), line, {
-        fontSize: isHeader ? '22px' : '18px',
-        color: isHeader ? '#ff7043' : '#ffffff',
-        fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif',
-        fontStyle: isHeader ? 'bold' : 'normal',
-        align: 'center',
-        stroke: isHeader ? '#000000' : undefined,
-        strokeThickness: isHeader ? 1 : 0,
-        resolution: 3
-      }).setOrigin(0.5);
-    });
+    const textY = -120;
 
     // Close button
-    const closeBtn = this.add.text(220, -175, '✕', {
+    const closeBtn = this.add.text(240, -205, '✕', {
       fontSize: '28px',
       color: '#888888',
       fontFamily: 'Arial',
@@ -583,8 +570,8 @@ export class MainMenuScene extends Phaser.Scene {
     aboutContainer.add([panel, title, closeBtn]);
     aboutText.forEach((line, index) => {
       const isHeader = line.includes(':');
-      const text = this.add.text(0, textY + (index * 24), line, {
-        fontSize: isHeader ? '22px' : '18px',
+      const text = this.add.text(0, textY + (index * 22), line, {
+        fontSize: isHeader ? '20px' : '17px',
         color: isHeader ? '#ff7043' : '#ffffff',
         fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif',
         fontStyle: isHeader ? 'bold' : 'normal',
