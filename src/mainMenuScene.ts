@@ -174,9 +174,9 @@ export class MainMenuScene extends Phaser.Scene {
 
     // Difficulty options
     const difficulties = [
-      { name: 'EASY', value: 'easy', desc: '4×4 to 6×6 Grid • Larger squares', y: -60 },
-      { name: 'MEDIUM', value: 'medium', desc: '5×5 to 7×7 Grid • Mixed squares', y: 10 },
-      { name: 'DIFFICULT', value: 'difficult', desc: '6×6 to 8×8 Grid • Smaller squares', y: 80 }
+      { name: 'EASY', value: 'easy', desc: 'Smaller grid • Varied square sizes (1×1 to 5×5)', y: -60 },
+      { name: 'MEDIUM', value: 'medium', desc: 'Medium grid • Balanced mix of sizes', y: 10 },
+      { name: 'DIFFICULT', value: 'difficult', desc: 'Large grid • Many small pieces to pack', y: 80 }
     ];
 
     const difficultyButtons: Phaser.GameObjects.Rectangle[] = [];

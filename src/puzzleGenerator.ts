@@ -46,30 +46,41 @@ export class PuzzleGenerator {
   }
 
   private static generateContainer(random: () => number, difficulty?: 'easy' | 'medium' | 'difficult'): Container {
-    // Generate container size based on difficulty
-    let minSize: number;
-    let maxSize: number;
+    // Generate container size based on difficulty with more variation
+    let minWidth: number, maxWidth: number;
+    let minHeight: number, maxHeight: number;
 
     switch (difficulty) {
       case 'easy':
-        minSize = 4;
-        maxSize = 6;
+        // Smaller containers for easy mode
+        minWidth = 5;
+        maxWidth = 8;
+        minHeight = 4;
+        maxHeight = 7;
         break;
       case 'medium':
-        minSize = 5;
-        maxSize = 7;
+        // Medium sized containers
+        minWidth = 6;
+        maxWidth = 10;
+        minHeight = 5;
+        maxHeight = 9;
         break;
       case 'difficult':
-        minSize = 6;
-        maxSize = 8;
+        // Larger containers for more complexity
+        minWidth = 8;
+        maxWidth = 12;
+        minHeight = 6;
+        maxHeight = 10;
         break;
       default:
-        minSize = 4;
-        maxSize = 8;
+        minWidth = 5;
+        maxWidth = 10;
+        minHeight = 4;
+        maxHeight = 9;
     }
-    
-    let width = Math.floor(random() * (maxSize - minSize + 1)) + minSize;
-    let height = Math.floor(random() * (maxSize - minSize + 1)) + minSize;
+
+    let width = Math.floor(random() * (maxWidth - minWidth + 1)) + minWidth;
+    let height = Math.floor(random() * (maxHeight - minHeight + 1)) + minHeight;
     
     // Ensure aspect ratio doesn't exceed 1.5:1
     const ratio = Math.max(width, height) / Math.min(width, height);
@@ -98,34 +109,53 @@ export class PuzzleGenerator {
 
     // Determine square size preferences based on difficulty
     const sizeProbabilities = this.getSizeProbabilities(difficulty);
-    const maxSquareSize = Math.min(container.width, container.height);
+    const maxSquareSize = Math.min(container.width, container.height, 5); // Cap at 5x5
 
     let attempts = 0;
-    const maxAttempts = 1000;
+    const maxAttempts = 1500;
+    let consecutiveFailures = 0;
 
     while (this.hasEmptySpaces(grid) && attempts < maxAttempts) {
       attempts++;
-      
-      // Choose square size based on difficulty
-      const size = this.chooseSizeByProbability(sizeProbabilities, maxSquareSize, random);
-      
+
+      // Dynamic size selection - adapt based on remaining space
+      const remainingCells = this.countEmptyCells(grid);
+      const totalCells = container.width * container.height;
+      const fillRatio = 1 - (remainingCells / totalCells);
+
+      // As we fill more, prefer smaller sizes
+      let size: number;
+      if (fillRatio > 0.7 || consecutiveFailures > 3) {
+        // When mostly full or after failures, prefer smaller sizes
+        size = Math.min(2, maxSquareSize);
+        if (random() > 0.5 && maxSquareSize > 1) {
+          size = 1;
+        }
+      } else {
+        // Normal selection based on difficulty
+        size = this.chooseSizeByProbability(sizeProbabilities, maxSquareSize, random);
+      }
+
       // Find valid placement
       const placement = this.findValidPlacement(grid, size, random);
-      
+
       if (placement) {
         // Place square on grid
         this.placeSquareOnGrid(grid, placement.x, placement.y, size, squareId);
-        
+
         squares.push({
           id: squareId,
           size,
           placed: false
         });
-        
+
         squareId++;
+        consecutiveFailures = 0;
       } else {
-        // If we can't place the chosen size, try smaller sizes
-        for (let trySize = size - 1; trySize >= 1; trySize--) {
+        consecutiveFailures++;
+        // If we can't place the chosen size, try ALL smaller sizes
+        let placed = false;
+        for (let trySize = Math.min(size - 1, 3); trySize >= 1; trySize--) {
           const smallerPlacement = this.findValidPlacement(grid, trySize, random);
           if (smallerPlacement) {
             this.placeSquareOnGrid(grid, smallerPlacement.x, smallerPlacement.y, trySize, squareId);
@@ -135,7 +165,23 @@ export class PuzzleGenerator {
               placed: false
             });
             squareId++;
+            placed = true;
+            consecutiveFailures = 0;
             break;
+          }
+        }
+
+        // If still can't place anything, try to fill single cells
+        if (!placed && remainingCells < 10) {
+          const emptyCell = this.findRandomEmptyCell(grid, random);
+          if (emptyCell) {
+            this.placeSquareOnGrid(grid, emptyCell.x, emptyCell.y, 1, squareId);
+            squares.push({
+              id: squareId,
+              size: 1,
+              placed: false
+            });
+            squareId++;
           }
         }
       }
@@ -148,13 +194,16 @@ export class PuzzleGenerator {
   private static getSizeProbabilities(difficulty: 'easy' | 'medium' | 'difficult'): number[] {
     switch (difficulty) {
       case 'easy':
-        return [0.1, 0.2, 0.4, 0.3]; // [1x1, 2x2, 3x3, 4x4+]
+        // Easy: More variety, favor medium to large squares
+        return [0.15, 0.25, 0.35, 0.20, 0.05]; // [1x1, 2x2, 3x3, 4x4, 5x5+]
       case 'medium':
-        return [0.3, 0.4, 0.2, 0.1]; // More 1x1 and 2x2
+        // Medium: Balanced mix with more small-medium pieces
+        return [0.25, 0.35, 0.25, 0.10, 0.05]; // More 1x1 and 2x2, some 3x3
       case 'difficult':
-        return [0.5, 0.3, 0.15, 0.05]; // Mostly small squares
+        // Difficult: Lots of small pieces, very few large
+        return [0.40, 0.35, 0.15, 0.08, 0.02]; // Mostly 1x1 and 2x2
       default:
-        return [0.3, 0.4, 0.2, 0.1];
+        return [0.25, 0.35, 0.25, 0.10, 0.05];
     }
   }
 
@@ -165,15 +214,19 @@ export class PuzzleGenerator {
   ): number {
     const roll = random();
     let cumulative = 0;
-    
-    for (let i = 0; i < probabilities.length && i < maxSize; i++) {
+
+    // Allow sizes from 1 to min(5, maxSize)
+    const maxAllowedSize = Math.min(5, maxSize);
+
+    for (let i = 0; i < probabilities.length && i < maxAllowedSize; i++) {
       cumulative += probabilities[i];
       if (roll <= cumulative) {
-        return Math.min(i + 1, maxSize);
+        return i + 1;
       }
     }
-    
-    return 1; // Default to 1x1
+
+    // If we get here, return a random size between 1 and maxAllowedSize
+    return Math.floor(random() * maxAllowedSize) + 1;
   }
 
   private static findValidPlacement(
@@ -229,6 +282,29 @@ export class PuzzleGenerator {
 
   private static hasEmptySpaces(grid: (number | null)[][]): boolean {
     return grid.some(row => row.some(cell => cell === null));
+  }
+
+  private static countEmptyCells(grid: (number | null)[][]): number {
+    let count = 0;
+    for (const row of grid) {
+      for (const cell of row) {
+        if (cell === null) count++;
+      }
+    }
+    return count;
+  }
+
+  private static findRandomEmptyCell(grid: (number | null)[][], random: () => number): { x: number; y: number } | null {
+    const emptyCells: { x: number; y: number }[] = [];
+    for (let y = 0; y < grid.length; y++) {
+      for (let x = 0; x < grid[0].length; x++) {
+        if (grid[y][x] === null) {
+          emptyCells.push({ x, y });
+        }
+      }
+    }
+    if (emptyCells.length === 0) return null;
+    return emptyCells[Math.floor(random() * emptyCells.length)];
   }
 
   private static shuffleArray<T>(array: T[], random: () => number): T[] {
