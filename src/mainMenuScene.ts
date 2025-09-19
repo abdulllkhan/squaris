@@ -24,9 +24,31 @@ export class MainMenuScene extends Phaser.Scene {
     // Add animated background particles
     this.createBackgroundEffects();
 
+    // Create logo container for logo and title
+    const logoContainer = this.add.container(width / 2, height * 0.15);
+
+    // Create orange square logo
+    const logoSize = 70;
+    const logoGraphics = this.add.graphics();
+
+    // Outer square with rounded corners
+    logoGraphics.fillStyle(0xff7043, 1);
+    logoGraphics.fillRoundedRect(-logoSize/2, -logoSize/2, logoSize, logoSize, 8);
+
+    // Middle square
+    logoGraphics.fillStyle(0xff4500, 1);
+    logoGraphics.fillRoundedRect(-logoSize/2 + 10, -logoSize/2 + 10, logoSize - 20, logoSize - 20, 6);
+
+    // Inner square
+    logoGraphics.fillStyle(0xffa726, 1);
+    logoGraphics.fillRoundedRect(-logoSize/2 + 18, -logoSize/2 + 18, logoSize - 36, logoSize - 36, 4);
+
+    // Position logo to the left of the title
+    logoGraphics.x = -200;
+
     // Main title with animation
-    const title = this.add.text(width / 2, height * 0.15, 'SQUARIS', {
-      fontSize: '92px',
+    const title = this.add.text(30, 0, 'SQUARIS', {
+      fontSize: '76px',
       color: '#ff7043',
       fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif',
       fontStyle: 'bold',
@@ -43,21 +65,14 @@ export class MainMenuScene extends Phaser.Scene {
       resolution: 3
     }).setOrigin(0.5);
 
-    // Subtitle
-    const subtitle = this.add.text(width / 2, height * 0.23, 'Pack Squares • Solve Puzzles', {
-      fontSize: '26px',
-      color: '#ffffff',
-      fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif',
-      stroke: '#000000',
-      strokeThickness: 3,
-      resolution: 3
-    }).setOrigin(0.5);
+    // Add both to container
+    logoContainer.add([logoGraphics, title]);
 
-    // Animate title entrance
+    // Animate logo container entrance
     this.tweens.add({
-      targets: title,
-      scaleX: 1.1,
-      scaleY: 1.1,
+      targets: logoContainer,
+      scaleX: 1.05,
+      scaleY: 1.05,
       duration: 2000,
       yoyo: true,
       repeat: -1,
