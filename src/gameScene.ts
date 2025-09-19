@@ -462,55 +462,74 @@ export class GameScene extends Phaser.Scene {
   }
 
   private showHint(_pointer?: Phaser.Input.Pointer) {
-    // Find the first unplaced square that can be placed
-    const unplacedSquares = GameLogic.getUnplacedSquares(this.gameState);
+    // Get unplaced squares sorted by size (largest first - they're hardest to place)
+    const unplacedSquares = GameLogic.getUnplacedSquares(this.gameState)
+      .sort((a, b) => b.size - a.size);
+
     const containerWidth = this.gameState.puzzle.container.width;
     const containerHeight = this.gameState.puzzle.container.height;
-    
+
+    // Try to find the best placement for each square
+    let bestPlacement: { square: any, x: number, y: number, score: number } | null = null;
+
     for (const square of unplacedSquares) {
       for (let y = 0; y <= containerHeight - square.size; y++) {
         for (let x = 0; x <= containerWidth - square.size; x++) {
           if (GameLogic.canPlaceSquare(this.gameState, square, x, y)) {
-            // Show hint by highlighting the square and position
-            const squareSprite = this.squareSprites.get(square.id);
-            if (squareSprite) {
-              // Highlight the square
-              this.tweens.add({
-                targets: squareSprite,
-                alpha: 0.5,
-                duration: 300,
-                yoyo: true,
-                repeat: 3
-              });
-              
-              // Show hint position
-              const hintX = this.containerX + x * this.cellSize + (square.size * this.cellSize) / 2;
-              const hintY = this.containerY + y * this.cellSize + (square.size * this.cellSize) / 2;
-              
-              const hintSquare = this.add.rectangle(
-                hintX, hintY,
-                square.size * this.cellSize,
-                square.size * this.cellSize,
-                0xffff00
-              ).setAlpha(0.3).setDepth(50);
-              
-              // Animate and remove hint
-              this.tweens.add({
-                targets: hintSquare,
-                alpha: 0.6,
-                duration: 500,
-                yoyo: true,
-                repeat: 2,
-                onComplete: () => hintSquare.destroy()
-              });
+            // Calculate a score for this placement
+            const score = this.evaluatePlacement(square, x, y);
+
+            if (!bestPlacement || score > bestPlacement.score) {
+              bestPlacement = { square, x, y, score };
             }
-            return; // Show hint for first available square only
           }
         }
       }
     }
-    
-    // Visual feedback for hint button
+
+    // Show the best hint found
+    if (bestPlacement) {
+      const { square, x, y } = bestPlacement;
+      const squareSprite = this.squareSprites.get(square.id);
+
+      if (squareSprite) {
+        // Highlight the square
+        this.tweens.add({
+          targets: squareSprite,
+          alpha: 0.5,
+          duration: 300,
+          yoyo: true,
+          repeat: 3
+        });
+
+        // Show hint position
+        const hintX = this.containerX + x * this.cellSize + (square.size * this.cellSize) / 2;
+        const hintY = this.containerY + y * this.cellSize + (square.size * this.cellSize) / 2;
+
+        const hintSquare = this.add.rectangle(
+          hintX, hintY,
+          square.size * this.cellSize,
+          square.size * this.cellSize,
+          0xffff00
+        ).setAlpha(0.3).setDepth(50);
+
+        // Animate and remove hint
+        this.tweens.add({
+          targets: hintSquare,
+          alpha: 0.6,
+          duration: 500,
+          yoyo: true,
+          repeat: 2,
+          onComplete: () => hintSquare.destroy()
+        });
+      }
+      return;
+    }
+
+    // No valid placement found - show a different indicator
+    console.log('No valid hints available - puzzle might be in unsolvable state');
+
+    // Visual feedback for hint button even when no hint available
     this.tweens.add({
       targets: this.hintButton,
       scaleX: 0.8,
@@ -518,6 +537,98 @@ export class GameScene extends Phaser.Scene {
       duration: 100,
       yoyo: true
     });
+  }
+
+  private evaluatePlacement(square: any, x: number, y: number): number {
+    // Score a placement based on how good it is
+    let score = 0;
+
+    // Prefer corner and edge placements (they're usually better)
+    const containerWidth = this.gameState.puzzle.container.width;
+    const containerHeight = this.gameState.puzzle.container.height;
+
+    // Corner bonus
+    if ((x === 0 || x + square.size === containerWidth) &&
+        (y === 0 || y + square.size === containerHeight)) {
+      score += 30;
+    }
+    // Edge bonus
+    else if (x === 0 || y === 0 ||
+             x + square.size === containerWidth ||
+             y + square.size === containerHeight) {
+      score += 20;
+    }
+
+    // Larger squares get priority (they're harder to place later)
+    score += square.size * 10;
+
+    // Check if this placement creates isolated cells
+    const testState = JSON.parse(JSON.stringify(this.gameState));
+    testState.grid = testState.grid.map((row: any[]) => [...row]);
+
+    // Temporarily place the square
+    for (let dy = 0; dy < square.size; dy++) {
+      for (let dx = 0; dx < square.size; dx++) {
+        testState.grid[y + dy][x + dx] = square.id;
+      }
+    }
+
+    // Count isolated cells (single empty cells surrounded by filled cells or edges)
+    let isolatedCells = 0;
+    for (let ty = 0; ty < containerHeight; ty++) {
+      for (let tx = 0; tx < containerWidth; tx++) {
+        if (testState.grid[ty][tx] === null) {
+          let surroundedCount = 0;
+          // Check all 4 directions
+          if (ty === 0 || testState.grid[ty - 1][tx] !== null) surroundedCount++;
+          if (ty === containerHeight - 1 || testState.grid[ty + 1][tx] !== null) surroundedCount++;
+          if (tx === 0 || testState.grid[ty][tx - 1] !== null) surroundedCount++;
+          if (tx === containerWidth - 1 || testState.grid[ty][tx + 1] !== null) surroundedCount++;
+
+          if (surroundedCount === 4) {
+            isolatedCells++;
+          }
+        }
+      }
+    }
+
+    // Penalize placements that create isolated cells
+    score -= isolatedCells * 50;
+
+    // Check if remaining empty space can accommodate smallest remaining pieces
+    const remainingSquares = GameLogic.getUnplacedSquares(this.gameState)
+      .filter(s => s.id !== square.id);
+
+    if (remainingSquares.length > 0) {
+      const smallestRemaining = Math.min(...remainingSquares.map(s => s.size));
+
+      // Count contiguous empty regions
+      let canFitSmallest = false;
+      for (let ty = 0; ty <= containerHeight - smallestRemaining; ty++) {
+        for (let tx = 0; tx <= containerWidth - smallestRemaining; tx++) {
+          let fits = true;
+          for (let dy = 0; dy < smallestRemaining && fits; dy++) {
+            for (let dx = 0; dx < smallestRemaining && fits; dx++) {
+              if (testState.grid[ty + dy][tx + dx] !== null) {
+                fits = false;
+              }
+            }
+          }
+          if (fits) {
+            canFitSmallest = true;
+            break;
+          }
+        }
+        if (canFitSmallest) break;
+      }
+
+      if (!canFitSmallest && smallestRemaining > 1) {
+        // This placement might create problems
+        score -= 100;
+      }
+    }
+
+    return score;
   }
 
   private rebuildVisualState() {
