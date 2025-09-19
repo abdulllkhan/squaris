@@ -2,8 +2,9 @@ import Phaser from 'phaser';
 
 export class MainMenuScene extends Phaser.Scene {
   private selectedDifficulty: 'easy' | 'medium' | 'difficult' = 'medium';
-  private soundEnabled: boolean = true;
+  private soundEnabled: boolean = localStorage.getItem('soundEnabled') !== 'false';
   private particles!: Phaser.GameObjects.Particles.ParticleEmitter;
+  private audioContext!: AudioContext;
 
   constructor() {
     super({ key: 'MainMenuScene' });
@@ -16,6 +17,9 @@ export class MainMenuScene extends Phaser.Scene {
 
   create() {
     const { width, height } = this.scale;
+
+    // Initialize audio
+    this.initializeAudio();
 
     // Add animated background particles
     this.createBackgroundEffects();
@@ -113,6 +117,7 @@ export class MainMenuScene extends Phaser.Scene {
       })
       .on('pointerdown', () => {
         bg.setScale(0.95);
+        this.playButtonSound();
         callback();
       })
       .on('pointerup', () => {
@@ -127,6 +132,44 @@ export class MainMenuScene extends Phaser.Scene {
     }).setOrigin(0.5);
 
     return { bg, text: textObj };
+  }
+
+  private initializeAudio() {
+    try {
+      this.audioContext = new (window.AudioContext || (window as any).webkitAudioContext)();
+    } catch (e) {
+      console.warn('Web Audio API not supported');
+      this.soundEnabled = false;
+    }
+  }
+
+  private playSound(frequency: number, duration: number, type: OscillatorType = 'sine', volume: number = 0.1) {
+    if (!this.soundEnabled || !this.audioContext) return;
+
+    const oscillator = this.audioContext.createOscillator();
+    const gainNode = this.audioContext.createGain();
+
+    oscillator.connect(gainNode);
+    gainNode.connect(this.audioContext.destination);
+
+    oscillator.frequency.setValueAtTime(frequency, this.audioContext.currentTime);
+    oscillator.type = type;
+
+    gainNode.gain.setValueAtTime(0, this.audioContext.currentTime);
+    gainNode.gain.linearRampToValueAtTime(volume, this.audioContext.currentTime + 0.01);
+    gainNode.gain.exponentialRampToValueAtTime(0.001, this.audioContext.currentTime + duration);
+
+    oscillator.start(this.audioContext.currentTime);
+    oscillator.stop(this.audioContext.currentTime + duration);
+  }
+
+  private playButtonSound() {
+    this.playSound(600, 0.05, 'square', 0.03);
+  }
+
+  private playSelectSound() {
+    this.playSound(440, 0.1, 'sine', 0.05);
+    setTimeout(() => this.playSound(554, 0.1, 'sine', 0.04), 50);
   }
 
   private createBackgroundEffects() {
@@ -203,6 +246,7 @@ export class MainMenuScene extends Phaser.Scene {
           });
           btn.setFillStyle(0xff4500);
           btn.setStrokeStyle(2, 0xff6b00);
+          this.playSelectSound();
         });
 
       const nameText = this.add.text(-180, diff.y - 10, diff.name, {
@@ -230,6 +274,7 @@ export class MainMenuScene extends Phaser.Scene {
       .setInteractive({ useHandCursor: true })
       .on('pointerdown', () => {
         // Start game with selected difficulty
+        this.playButtonSound();
         this.scene.start('GameScene', { difficulty: this.selectedDifficulty });
       })
       .on('pointerover', () => startBtn.setFillStyle(0x45b7d1))
@@ -251,6 +296,7 @@ export class MainMenuScene extends Phaser.Scene {
     }).setOrigin(0.5)
       .setInteractive({ useHandCursor: true })
       .on('pointerdown', () => {
+        this.playButtonSound();
         difficultyContainer.destroy();
         overlay.destroy();
       })
@@ -315,6 +361,7 @@ export class MainMenuScene extends Phaser.Scene {
         soundToggleText.setText(this.soundEnabled ? 'ON' : 'OFF');
         // Save preference
         localStorage.setItem('soundEnabled', String(this.soundEnabled));
+        this.playButtonSound();
       });
 
     const soundToggleText = this.add.text(100, -30, this.soundEnabled ? 'ON' : 'OFF', {
@@ -341,6 +388,7 @@ export class MainMenuScene extends Phaser.Scene {
         timerToggle.setStrokeStyle(2, showTimer ? 0x45b7d1 : 0x888888);
         timerToggleText.setText(showTimer ? 'ON' : 'OFF');
         localStorage.setItem('showTimer', String(showTimer));
+        this.playButtonSound();
       });
 
     const timerToggleText = this.add.text(100, 30, showTimer ? 'ON' : 'OFF', {
@@ -359,6 +407,7 @@ export class MainMenuScene extends Phaser.Scene {
       .on('pointerdown', () => {
         // Clear local storage
         localStorage.clear();
+        this.playButtonSound();
         // Show confirmation
         const confirmText = this.add.text(0, 155, 'Progress Reset!', {
           fontSize: '16px',
@@ -385,6 +434,7 @@ export class MainMenuScene extends Phaser.Scene {
     }).setOrigin(0.5)
       .setInteractive({ useHandCursor: true })
       .on('pointerdown', () => {
+        this.playButtonSound();
         settingsContainer.destroy();
         overlay.destroy();
       })
@@ -470,6 +520,7 @@ export class MainMenuScene extends Phaser.Scene {
     }).setOrigin(0.5)
       .setInteractive({ useHandCursor: true })
       .on('pointerdown', () => {
+        this.playButtonSound();
         aboutContainer.destroy();
         overlay.destroy();
       })

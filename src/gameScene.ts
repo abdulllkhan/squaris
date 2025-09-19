@@ -252,6 +252,7 @@ export class GameScene extends Phaser.Scene {
       .setStrokeStyle(2, 0x666666)
       .setInteractive({ useHandCursor: true })
       .on('pointerdown', () => {
+        this.playButtonSound();
         this.scene.start('MainMenuScene');
       })
       .on('pointerover', () => menuBtn.setFillStyle(0x5a5a5a))
@@ -269,7 +270,10 @@ export class GameScene extends Phaser.Scene {
     this.undoButton = this.add.rectangle(0, 0, 80, 30, 0x4a4a4a)
       .setStrokeStyle(2, 0x666666)
       .setInteractive({ useHandCursor: true })
-      .on('pointerdown', this.undoLastMove, this)
+      .on('pointerdown', () => {
+        this.playButtonSound();
+        this.undoLastMove();
+      })
       .on('pointerover', () => this.undoButton.setFillStyle(0x5a5a5a))
       .on('pointerout', () => this.undoButton.setFillStyle(0x4a4a4a));
     
@@ -285,7 +289,10 @@ export class GameScene extends Phaser.Scene {
     this.restartButton = this.add.rectangle(0, 40, 80, 30, 0x4a4a4a)
       .setStrokeStyle(2, 0x666666)
       .setInteractive({ useHandCursor: true })
-      .on('pointerdown', this.restartGame, this)
+      .on('pointerdown', () => {
+        this.playButtonSound();
+        this.restartGame();
+      })
       .on('pointerover', () => this.restartButton.setFillStyle(0x5a5a5a))
       .on('pointerout', () => this.restartButton.setFillStyle(0x4a4a4a));
     
@@ -301,7 +308,10 @@ export class GameScene extends Phaser.Scene {
     this.hintButton = this.add.rectangle(0, 80, 80, 30, 0x4a4a4a)
       .setStrokeStyle(2, 0x666666)
       .setInteractive({ useHandCursor: true })
-      .on('pointerdown', this.showHint, this)
+      .on('pointerdown', () => {
+        this.playButtonSound();
+        this.showHint();
+      })
       .on('pointerover', () => this.hintButton.setFillStyle(0x5a5a5a))
       .on('pointerout', () => this.hintButton.setFillStyle(0x4a4a4a));
     
@@ -768,9 +778,11 @@ export class GameScene extends Phaser.Scene {
             this.time.delayedCall(200, () => {
               this.particleEmitter.stop();
             });
+            // Play placement sound
+            this.playPlacementSound();
           }
         });
-        
+
         console.log(`Placement: Center(${gameObject.x.toFixed(0)},${gameObject.y.toFixed(0)}) -> TopLeft(${topLeftX.toFixed(0)},${topLeftY.toFixed(0)}) -> Grid(${gridX},${gridY}) -> Final(${newX.toFixed(0)},${newY.toFixed(0)})`);
         
         // Update label position
@@ -815,6 +827,7 @@ export class GameScene extends Phaser.Scene {
           this.makeSpaceInInventory(gameObject, squareId);
         } else {
           // Return to organized inventory position
+          this.playErrorSound();
           this.returnSquareToInventory(gameObject, squareId);
         }
       }
@@ -877,6 +890,7 @@ export class GameScene extends Phaser.Scene {
           this.gameState = GameLogic.removeSquare(this.gameState, squareId);
           this.moveCounter++;
           this.updateUI();
+          this.playButtonSound();
           this.returnSquareToInventory(clickedObject, squareId);
         }
       }
@@ -1132,6 +1146,9 @@ export class GameScene extends Phaser.Scene {
 
   private onPuzzleCompleted() {
     this.gameState.isCompleted = true;
+
+    // Play completion sound
+    this.playCompletionSound();
     
     // Create celebration particle effects
     const gameWidth = this.sys.game.config.width as number;
