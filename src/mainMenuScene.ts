@@ -26,28 +26,31 @@ export class MainMenuScene extends Phaser.Scene {
 
     // Main title with animation
     const title = this.add.text(width / 2, height * 0.15, 'SQUARIS', {
-      fontSize: '72px',
-      color: '#ff4500',
+      fontSize: '92px',
+      color: '#ff7043',
       fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif',
       fontStyle: 'bold',
-      stroke: '#000000',
+      stroke: '#ffffff',
       strokeThickness: 4,
       shadow: {
-        offsetX: 4,
-        offsetY: 4,
+        offsetX: 5,
+        offsetY: 5,
         color: '#000000',
-        blur: 8,
+        blur: 12,
         stroke: true,
         fill: true
-      }
+      },
+      resolution: 3
     }).setOrigin(0.5);
 
     // Subtitle
-    const subtitle = this.add.text(width / 2, height * 0.22, 'Pack Squares • Solve Puzzles', {
-      fontSize: '20px',
-      color: '#d7dadc',
+    const subtitle = this.add.text(width / 2, height * 0.23, 'Pack Squares • Solve Puzzles', {
+      fontSize: '26px',
+      color: '#ffffff',
       fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif',
-      alpha: 0.9
+      stroke: '#000000',
+      strokeThickness: 3,
+      resolution: 3
     }).setOrigin(0.5);
 
     // Animate title entrance
@@ -84,25 +87,29 @@ export class MainMenuScene extends Phaser.Scene {
     // Daily challenge indicator
     const today = new Date().toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
     const dailyChallenge = this.add.text(width / 2, height * 0.85, `Today's Puzzle: ${today}`, {
-      fontSize: '18px',
-      color: '#888888',
-      fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif'
+      fontSize: '22px',
+      color: '#cccccc',
+      fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif',
+      stroke: '#000000',
+      strokeThickness: 2,
+      resolution: 3
     }).setOrigin(0.5);
 
     // Version and credits
     this.add.text(width / 2, height * 0.95, 'v1.0.0 | Made with Phaser 3', {
-      fontSize: '14px',
-      color: '#555555',
-      fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif'
+      fontSize: '17px',
+      color: '#999999',
+      fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif',
+      resolution: 3
     }).setOrigin(0.5);
   }
 
   private createButton(x: number, y: number, width: number, height: number, text: string, callback: () => void) {
-    const bg = this.add.rectangle(x, y, width, height, 0x343536)
-      .setStrokeStyle(2, 0x666666)
+    const bg = this.add.rectangle(x, y, width, height, 0x1a1a1d)
+      .setStrokeStyle(4, 0x6a6a6d)
       .setInteractive({ useHandCursor: true })
       .on('pointerover', () => {
-        bg.setFillStyle(0x454547);
+        bg.setFillStyle(0x2a2a2d);
         bg.setScale(1.05);
         this.tweens.add({
           targets: bg,
@@ -112,7 +119,7 @@ export class MainMenuScene extends Phaser.Scene {
         });
       })
       .on('pointerout', () => {
-        bg.setFillStyle(0x343536);
+        bg.setFillStyle(0x1a1a1d);
         bg.setScale(1.0);
       })
       .on('pointerdown', () => {
@@ -125,10 +132,13 @@ export class MainMenuScene extends Phaser.Scene {
       });
 
     const textObj = this.add.text(x, y, text, {
-      fontSize: '24px',
+      fontSize: '28px',
       color: '#ffffff',
       fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif',
-      fontStyle: 'bold'
+      fontStyle: 'bold',
+      stroke: '#000000',
+      strokeThickness: 2,
+      resolution: 3
     }).setOrigin(0.5);
 
     return { bg, text: textObj };
@@ -199,18 +209,21 @@ export class MainMenuScene extends Phaser.Scene {
     const difficultyContainer = this.add.container(width / 2, height / 2).setDepth(101);
 
     // Panel background
-    const panel = this.add.rectangle(0, 0, 500, 400, 0x2a2a2d)
-      .setStrokeStyle(3, 0x666666);
+    const panel = this.add.rectangle(0, 0, 580, 440, 0x0f0f0f)
+      .setStrokeStyle(5, 0x5a5a5d);
 
     // Add panel to container first
     difficultyContainer.add(panel);
 
     // Title
-    const title = this.add.text(0, -150, 'SELECT DIFFICULTY', {
-      fontSize: '32px',
-      color: '#ff4500',
+    const title = this.add.text(0, -160, 'SELECT DIFFICULTY', {
+      fontSize: '40px',
+      color: '#ff7043',
       fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif',
-      fontStyle: 'bold'
+      fontStyle: 'bold',
+      stroke: '#ffffff',
+      strokeThickness: 2,
+      resolution: 3
     }).setOrigin(0.5);
 
     difficultyContainer.add(title);
@@ -227,39 +240,43 @@ export class MainMenuScene extends Phaser.Scene {
     difficulties.forEach(diff => {
       const isSelected = this.selectedDifficulty === diff.value;
 
-      const btn = this.add.rectangle(0, diff.y, 400, 60, isSelected ? 0xff4500 : 0x343536)
-        .setStrokeStyle(2, isSelected ? 0xff6b00 : 0x666666)
+      const btn = this.add.rectangle(0, diff.y, 480, 70, isSelected ? 0xff7043 : 0x1a1a1d)
+        .setStrokeStyle(4, isSelected ? 0xffa726 : 0x5a5a5d)
         .setInteractive({ useHandCursor: true })
         .on('pointerover', () => {
-          if (this.selectedDifficulty !== diff.value) btn.setFillStyle(0x454547);
+          if (this.selectedDifficulty !== diff.value) btn.setFillStyle(0x2a2a2d);
         })
         .on('pointerout', () => {
-          if (this.selectedDifficulty !== diff.value) btn.setFillStyle(0x343536);
+          if (this.selectedDifficulty !== diff.value) btn.setFillStyle(0x1a1a1d);
         })
         .on('pointerdown', () => {
           // Update selection
           this.selectedDifficulty = diff.value as 'easy' | 'medium' | 'difficult';
           // Update visual state
           difficultyButtons.forEach(b => {
-            b.setFillStyle(0x343536);
-            b.setStrokeStyle(2, 0x666666);
+            b.setFillStyle(0x1a1a1d);
+            b.setStrokeStyle(4, 0x5a5a5d);
           });
-          btn.setFillStyle(0xff4500);
-          btn.setStrokeStyle(2, 0xff6b00);
+          btn.setFillStyle(0xff7043);
+          btn.setStrokeStyle(4, 0xffa726);
           this.playSelectSound();
         });
 
-      const nameText = this.add.text(-180, diff.y - 10, diff.name, {
-        fontSize: '20px',
+      const nameText = this.add.text(-220, diff.y - 12, diff.name, {
+        fontSize: '26px',
         color: '#ffffff',
         fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif',
-        fontStyle: 'bold'
+        fontStyle: 'bold',
+        stroke: '#000000',
+        strokeThickness: 1,
+        resolution: 3
       }).setOrigin(0, 0.5);
 
-      const descText = this.add.text(-180, diff.y + 10, diff.desc, {
-        fontSize: '14px',
-        color: '#888888',
-        fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif'
+      const descText = this.add.text(-220, diff.y + 13, diff.desc, {
+        fontSize: '17px',
+        color: '#cccccc',
+        fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif',
+        resolution: 3
       }).setOrigin(0, 0.5);
 
       difficultyButtons.push(btn);
@@ -269,30 +286,34 @@ export class MainMenuScene extends Phaser.Scene {
     });
 
     // Start button
-    const startBtn = this.add.rectangle(0, 150, 150, 45, 0x4ecdc4)
-      .setStrokeStyle(2, 0x45b7d1)
+    const startBtn = this.add.rectangle(0, 155, 200, 55, 0x4ecdc4)
+      .setStrokeStyle(4, 0x26a69a)
       .setInteractive({ useHandCursor: true })
       .on('pointerdown', () => {
         // Start game with selected difficulty
         this.playButtonSound();
         this.scene.start('GameScene', { difficulty: this.selectedDifficulty });
       })
-      .on('pointerover', () => startBtn.setFillStyle(0x45b7d1))
+      .on('pointerover', () => startBtn.setFillStyle(0x80deea))
       .on('pointerout', () => startBtn.setFillStyle(0x4ecdc4));
 
-    const startText = this.add.text(0, 150, 'START GAME', {
-      fontSize: '18px',
+    const startText = this.add.text(0, 155, 'START GAME', {
+      fontSize: '22px',
       color: '#000000',
       fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif',
-      fontStyle: 'bold'
+      fontStyle: 'bold',
+      stroke: '#ffffff',
+      strokeThickness: 1,
+      resolution: 3
     }).setOrigin(0.5);
 
     // Close button
-    const closeBtn = this.add.text(220, -165, '✕', {
-      fontSize: '28px',
-      color: '#888888',
+    const closeBtn = this.add.text(260, -175, '✕', {
+      fontSize: '36px',
+      color: '#cccccc',
       fontFamily: 'Arial',
-      fontStyle: 'bold'
+      fontStyle: 'bold',
+      resolution: 3
     }).setOrigin(0.5)
       .setInteractive({ useHandCursor: true })
       .on('pointerdown', () => {
@@ -333,22 +354,26 @@ export class MainMenuScene extends Phaser.Scene {
     const settingsContainer = this.add.container(width / 2, height / 2).setDepth(101);
 
     // Panel background
-    const panel = this.add.rectangle(0, 0, 450, 350, 0x2a2a2d)
-      .setStrokeStyle(3, 0x666666);
+    const panel = this.add.rectangle(0, 0, 500, 380, 0x0f0f0f)
+      .setStrokeStyle(5, 0x5a5a5d);
 
     // Title
-    const title = this.add.text(0, -130, 'SETTINGS', {
-      fontSize: '32px',
-      color: '#ff4500',
+    const title = this.add.text(0, -140, 'SETTINGS', {
+      fontSize: '40px',
+      color: '#ff7043',
       fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif',
-      fontStyle: 'bold'
+      fontStyle: 'bold',
+      stroke: '#ffffff',
+      strokeThickness: 2,
+      resolution: 3
     }).setOrigin(0.5);
 
     // Sound toggle
     const soundLabel = this.add.text(-150, -30, 'Sound Effects:', {
       fontSize: '20px',
       color: '#ffffff',
-      fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif'
+      fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif',
+      resolution: 3
     }).setOrigin(0, 0.5);
 
     const soundToggle = this.add.rectangle(100, -30, 80, 40, this.soundEnabled ? 0x4ecdc4 : 0x666666)
@@ -368,14 +393,16 @@ export class MainMenuScene extends Phaser.Scene {
       fontSize: '18px',
       color: '#000000',
       fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif',
-      fontStyle: 'bold'
+      fontStyle: 'bold',
+      resolution: 3
     }).setOrigin(0.5);
 
     // Timer display toggle
     const timerLabel = this.add.text(-150, 30, 'Show Timer:', {
       fontSize: '20px',
       color: '#ffffff',
-      fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif'
+      fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif',
+      resolution: 3
     }).setOrigin(0, 0.5);
 
     let showTimer = localStorage.getItem('showTimer') !== 'false';
@@ -395,7 +422,8 @@ export class MainMenuScene extends Phaser.Scene {
       fontSize: '18px',
       color: '#000000',
       fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif',
-      fontStyle: 'bold'
+      fontStyle: 'bold',
+      resolution: 3
     }).setOrigin(0.5);
 
     // Reset progress button
@@ -412,7 +440,8 @@ export class MainMenuScene extends Phaser.Scene {
         const confirmText = this.add.text(0, 155, 'Progress Reset!', {
           fontSize: '16px',
           color: '#4ecdc4',
-          fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif'
+          fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif',
+          resolution: 3
         }).setOrigin(0.5);
         settingsContainer.add(confirmText);
         this.time.delayedCall(2000, () => confirmText.destroy());
@@ -422,7 +451,8 @@ export class MainMenuScene extends Phaser.Scene {
       fontSize: '16px',
       color: '#ffffff',
       fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif',
-      fontStyle: 'bold'
+      fontStyle: 'bold',
+      resolution: 3
     }).setOrigin(0.5);
 
     // Close button
@@ -430,7 +460,8 @@ export class MainMenuScene extends Phaser.Scene {
       fontSize: '28px',
       color: '#888888',
       fontFamily: 'Arial',
-      fontStyle: 'bold'
+      fontStyle: 'bold',
+      resolution: 3
     }).setOrigin(0.5)
       .setInteractive({ useHandCursor: true })
       .on('pointerdown', () => {
@@ -470,15 +501,18 @@ export class MainMenuScene extends Phaser.Scene {
     const aboutContainer = this.add.container(width / 2, height / 2).setDepth(101);
 
     // Panel background
-    const panel = this.add.rectangle(0, 0, 500, 400, 0x2a2a2d)
-      .setStrokeStyle(3, 0x666666);
+    const panel = this.add.rectangle(0, 0, 550, 430, 0x0f0f0f)
+      .setStrokeStyle(5, 0x5a5a5d);
 
     // Title
-    const title = this.add.text(0, -160, 'ABOUT SQUARIS', {
-      fontSize: '32px',
-      color: '#ff4500',
+    const title = this.add.text(0, -170, 'ABOUT SQUARIS', {
+      fontSize: '40px',
+      color: '#ff7043',
       fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif',
-      fontStyle: 'bold'
+      fontStyle: 'bold',
+      stroke: '#ffffff',
+      strokeThickness: 2,
+      resolution: 3
     }).setOrigin(0.5);
 
     // About text
@@ -502,12 +536,15 @@ export class MainMenuScene extends Phaser.Scene {
     const textY = -80;
     aboutText.forEach((line, index) => {
       const isHeader = line.includes(':');
-      this.add.text(0, textY + (index * 22), line, {
-        fontSize: isHeader ? '18px' : '16px',
-        color: isHeader ? '#ff4500' : '#d7dadc',
+      this.add.text(0, textY + (index * 24), line, {
+        fontSize: isHeader ? '22px' : '18px',
+        color: isHeader ? '#ff7043' : '#ffffff',
         fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif',
         fontStyle: isHeader ? 'bold' : 'normal',
-        align: 'center'
+        align: 'center',
+        stroke: isHeader ? '#000000' : undefined,
+        strokeThickness: isHeader ? 1 : 0,
+        resolution: 3
       }).setOrigin(0.5);
     });
 
@@ -516,7 +553,8 @@ export class MainMenuScene extends Phaser.Scene {
       fontSize: '28px',
       color: '#888888',
       fontFamily: 'Arial',
-      fontStyle: 'bold'
+      fontStyle: 'bold',
+      resolution: 3
     }).setOrigin(0.5)
       .setInteractive({ useHandCursor: true })
       .on('pointerdown', () => {
@@ -530,12 +568,15 @@ export class MainMenuScene extends Phaser.Scene {
     aboutContainer.add([panel, title, closeBtn]);
     aboutText.forEach((line, index) => {
       const isHeader = line.includes(':');
-      const text = this.add.text(0, textY + (index * 22), line, {
-        fontSize: isHeader ? '18px' : '16px',
-        color: isHeader ? '#ff4500' : '#d7dadc',
+      const text = this.add.text(0, textY + (index * 24), line, {
+        fontSize: isHeader ? '22px' : '18px',
+        color: isHeader ? '#ff7043' : '#ffffff',
         fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif',
         fontStyle: isHeader ? 'bold' : 'normal',
-        align: 'center'
+        align: 'center',
+        stroke: isHeader ? '#000000' : undefined,
+        strokeThickness: isHeader ? 1 : 0,
+        resolution: 3
       }).setOrigin(0.5);
       aboutContainer.add(text);
     });

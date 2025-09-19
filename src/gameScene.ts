@@ -215,7 +215,7 @@ export class GameScene extends Phaser.Scene {
           stroke: '#000000',
           strokeThickness: 3,
           padding: { x: 4, y: 4 },
-          resolution: 2
+          resolution: 3
         }
       ).setOrigin(0.5).setDepth(10);
       
@@ -266,7 +266,7 @@ export class GameScene extends Phaser.Scene {
       color: '#ffffff',
       fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif',
       fontStyle: 'bold',
-      resolution: 2
+      resolution: 3
     }).setOrigin(0.5);
     
     // Undo button
@@ -285,7 +285,7 @@ export class GameScene extends Phaser.Scene {
       color: '#ffffff',
       fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif',
       fontStyle: 'bold',
-      resolution: 2
+      resolution: 3
     }).setOrigin(0.5);
     
     // Restart button
@@ -304,7 +304,7 @@ export class GameScene extends Phaser.Scene {
       color: '#ffffff',
       fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif',
       fontStyle: 'bold',
-      resolution: 2
+      resolution: 3
     }).setOrigin(0.5);
     
     // Hint button
@@ -323,7 +323,7 @@ export class GameScene extends Phaser.Scene {
       color: '#ffffff',
       fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif',
       fontStyle: 'bold',
-      resolution: 2
+      resolution: 3
     }).setOrigin(0.5);
     
     this.gameControls.add([menuBtn, menuText, this.undoButton, undoText, this.restartButton, restartText, this.hintButton, hintText]);
@@ -691,7 +691,7 @@ export class GameScene extends Phaser.Scene {
             stroke: '#000000',
             strokeThickness: 3,
             padding: { x: 4, y: 4 },
-            resolution: 2
+            resolution: 3
           }
         ).setOrigin(0.5).setDepth(10);
         
@@ -1208,7 +1208,7 @@ export class GameScene extends Phaser.Scene {
       fontStyle: 'bold',
       stroke: '#000000',
       strokeThickness: 2,
-      resolution: 2
+      resolution: 3
     });
 
     // Show/hide timer based on settings
@@ -1220,7 +1220,7 @@ export class GameScene extends Phaser.Scene {
       color: '#ffffff',
       fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif',
       fontStyle: 'bold',
-      resolution: 2
+      resolution: 3
     });
     
     // Progress tracker
@@ -1230,7 +1230,7 @@ export class GameScene extends Phaser.Scene {
       color: '#888888',
       fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif',
       fontStyle: 'bold',
-      resolution: 2
+      resolution: 3
     });
     
     // Puzzle info
@@ -1240,7 +1240,7 @@ export class GameScene extends Phaser.Scene {
       color: '#888888',
       fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif',
       fontStyle: 'bold',
-      resolution: 2
+      resolution: 3
     });
     
     // Completion text (hidden initially)
