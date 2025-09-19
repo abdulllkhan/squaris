@@ -37,12 +37,15 @@ export class GameScene extends Phaser.Scene {
     this.load.image('particle', 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNkYPhfDwAChwGA60e6kgAAAABJRU5ErkJggg==');
   }
 
-  create(data?: { difficulty?: 'easy' | 'medium' | 'difficult' }) {
+  create(data?: { difficulty?: 'easy' | 'medium' | 'difficult'; isRestart?: boolean }) {
     // Get difficulty from scene data or use default
     this.difficulty = data?.difficulty || 'medium';
+
     // Generate puzzle based on difficulty
+    // Use a unique seed on restart to get different puzzles
     const today = new Date().toISOString().split('T')[0];
-    const puzzle = PuzzleGenerator.generateDailyPuzzle(today, this.difficulty);
+    const seed = data?.isRestart ? `${today}-${Date.now()}` : today;
+    const puzzle = PuzzleGenerator.generateDailyPuzzle(seed, this.difficulty);
     this.gameState = GameLogic.createInitialGameState(puzzle);
 
     // Set up the game layout
@@ -380,8 +383,18 @@ export class GameScene extends Phaser.Scene {
   }
 
   private saveGameState() {
+    // Deep clone the entire game state including puzzle data
+    const stateToSave = {
+      ...this.gameState,
+      puzzle: {
+        ...this.gameState.puzzle,
+        squares: this.gameState.puzzle.squares.map(s => ({...s}))
+      },
+      grid: this.gameState.grid.map(row => [...row])
+    };
+
     // Save current game state for undo functionality
-    this.gameHistory.push(JSON.parse(JSON.stringify(this.gameState)));
+    this.gameHistory.push(JSON.parse(JSON.stringify(stateToSave)));
     // Keep only last 10 moves
     if (this.gameHistory.length > 10) {
       this.gameHistory.shift();
@@ -390,17 +403,39 @@ export class GameScene extends Phaser.Scene {
 
   private undoLastMove(_pointer?: Phaser.Input.Pointer) {
     if (this.gameHistory.length > 1) {
+      console.log('Undo: Starting undo operation');
+
       // Remove current state
       this.gameHistory.pop();
       // Restore previous state
       const previousState = JSON.parse(JSON.stringify(this.gameHistory[this.gameHistory.length - 1]));
       this.gameState = previousState;
+
+      console.log('Undo: State restored, isCompleted =', this.gameState.isCompleted);
+
+      // IMPORTANT: Ensure the game is not marked as completed after undo
+      this.gameState.isCompleted = false;
+
+      // Reset move counter
       this.moveCounter = Math.max(0, this.moveCounter - 1);
-      
+
+      // Clear any drag state that might be lingering
+      this.draggedSquare = null;
+      if (this.placementPreview) {
+        this.placementPreview.destroy();
+        this.placementPreview = null;
+      }
+
+      // Re-enable input in case it was disabled
+      this.input.enabled = true;
+
+      console.log('Undo: Rebuilding visual state');
       // Rebuild the visual state
       this.rebuildVisualState();
       this.updateUI();
-      
+
+      console.log('Undo: Complete, inventory has', this.inventorySquares.length, 'squares');
+
       // Visual feedback
       this.tweens.add({
         targets: this.undoButton,
@@ -413,20 +448,8 @@ export class GameScene extends Phaser.Scene {
   }
 
   private restartGame(_pointer?: Phaser.Input.Pointer) {
-    // Reset game state with current difficulty
-    const today = new Date().toISOString().split('T')[0];
-    const puzzle = PuzzleGenerator.generateDailyPuzzle(today, this.difficulty);
-    this.gameState = GameLogic.createInitialGameState(puzzle);
-    this.moveCounter = 0;
-    this.gameHistory = [];
-    this.saveGameState();
-    
-    // Rebuild visuals
-    this.rebuildVisualState();
-    this.updateUI();
-    
-    // Hide completion text
-    this.completionText.setVisible(false);
+    // Complete scene restart for clean state with new puzzle
+    this.scene.restart({ difficulty: this.difficulty, isRestart: true });
     
     // Visual feedback
     this.tweens.add({
@@ -439,55 +462,74 @@ export class GameScene extends Phaser.Scene {
   }
 
   private showHint(_pointer?: Phaser.Input.Pointer) {
-    // Find the first unplaced square that can be placed
-    const unplacedSquares = GameLogic.getUnplacedSquares(this.gameState);
+    // Get unplaced squares sorted by size (largest first - they're hardest to place)
+    const unplacedSquares = GameLogic.getUnplacedSquares(this.gameState)
+      .sort((a, b) => b.size - a.size);
+
     const containerWidth = this.gameState.puzzle.container.width;
     const containerHeight = this.gameState.puzzle.container.height;
-    
+
+    // Try to find the best placement for each square
+    let bestPlacement: { square: any, x: number, y: number, score: number } | null = null;
+
     for (const square of unplacedSquares) {
       for (let y = 0; y <= containerHeight - square.size; y++) {
         for (let x = 0; x <= containerWidth - square.size; x++) {
           if (GameLogic.canPlaceSquare(this.gameState, square, x, y)) {
-            // Show hint by highlighting the square and position
-            const squareSprite = this.squareSprites.get(square.id);
-            if (squareSprite) {
-              // Highlight the square
-              this.tweens.add({
-                targets: squareSprite,
-                alpha: 0.5,
-                duration: 300,
-                yoyo: true,
-                repeat: 3
-              });
-              
-              // Show hint position
-              const hintX = this.containerX + x * this.cellSize + (square.size * this.cellSize) / 2;
-              const hintY = this.containerY + y * this.cellSize + (square.size * this.cellSize) / 2;
-              
-              const hintSquare = this.add.rectangle(
-                hintX, hintY,
-                square.size * this.cellSize,
-                square.size * this.cellSize,
-                0xffff00
-              ).setAlpha(0.3).setDepth(50);
-              
-              // Animate and remove hint
-              this.tweens.add({
-                targets: hintSquare,
-                alpha: 0.6,
-                duration: 500,
-                yoyo: true,
-                repeat: 2,
-                onComplete: () => hintSquare.destroy()
-              });
+            // Calculate a score for this placement
+            const score = this.evaluatePlacement(square, x, y);
+
+            if (!bestPlacement || score > bestPlacement.score) {
+              bestPlacement = { square, x, y, score };
             }
-            return; // Show hint for first available square only
           }
         }
       }
     }
-    
-    // Visual feedback for hint button
+
+    // Show the best hint found
+    if (bestPlacement) {
+      const { square, x, y } = bestPlacement;
+      const squareSprite = this.squareSprites.get(square.id);
+
+      if (squareSprite) {
+        // Highlight the square
+        this.tweens.add({
+          targets: squareSprite,
+          alpha: 0.5,
+          duration: 300,
+          yoyo: true,
+          repeat: 3
+        });
+
+        // Show hint position
+        const hintX = this.containerX + x * this.cellSize + (square.size * this.cellSize) / 2;
+        const hintY = this.containerY + y * this.cellSize + (square.size * this.cellSize) / 2;
+
+        const hintSquare = this.add.rectangle(
+          hintX, hintY,
+          square.size * this.cellSize,
+          square.size * this.cellSize,
+          0xffff00
+        ).setAlpha(0.3).setDepth(50);
+
+        // Animate and remove hint
+        this.tweens.add({
+          targets: hintSquare,
+          alpha: 0.6,
+          duration: 500,
+          yoyo: true,
+          repeat: 2,
+          onComplete: () => hintSquare.destroy()
+        });
+      }
+      return;
+    }
+
+    // No valid placement found - show a different indicator
+    console.log('No valid hints available - puzzle might be in unsolvable state');
+
+    // Visual feedback for hint button even when no hint available
     this.tweens.add({
       targets: this.hintButton,
       scaleX: 0.8,
@@ -497,6 +539,98 @@ export class GameScene extends Phaser.Scene {
     });
   }
 
+  private evaluatePlacement(square: any, x: number, y: number): number {
+    // Score a placement based on how good it is
+    let score = 0;
+
+    // Prefer corner and edge placements (they're usually better)
+    const containerWidth = this.gameState.puzzle.container.width;
+    const containerHeight = this.gameState.puzzle.container.height;
+
+    // Corner bonus
+    if ((x === 0 || x + square.size === containerWidth) &&
+        (y === 0 || y + square.size === containerHeight)) {
+      score += 30;
+    }
+    // Edge bonus
+    else if (x === 0 || y === 0 ||
+             x + square.size === containerWidth ||
+             y + square.size === containerHeight) {
+      score += 20;
+    }
+
+    // Larger squares get priority (they're harder to place later)
+    score += square.size * 10;
+
+    // Check if this placement creates isolated cells
+    const testState = JSON.parse(JSON.stringify(this.gameState));
+    testState.grid = testState.grid.map((row: any[]) => [...row]);
+
+    // Temporarily place the square
+    for (let dy = 0; dy < square.size; dy++) {
+      for (let dx = 0; dx < square.size; dx++) {
+        testState.grid[y + dy][x + dx] = square.id;
+      }
+    }
+
+    // Count isolated cells (single empty cells surrounded by filled cells or edges)
+    let isolatedCells = 0;
+    for (let ty = 0; ty < containerHeight; ty++) {
+      for (let tx = 0; tx < containerWidth; tx++) {
+        if (testState.grid[ty][tx] === null) {
+          let surroundedCount = 0;
+          // Check all 4 directions
+          if (ty === 0 || testState.grid[ty - 1][tx] !== null) surroundedCount++;
+          if (ty === containerHeight - 1 || testState.grid[ty + 1][tx] !== null) surroundedCount++;
+          if (tx === 0 || testState.grid[ty][tx - 1] !== null) surroundedCount++;
+          if (tx === containerWidth - 1 || testState.grid[ty][tx + 1] !== null) surroundedCount++;
+
+          if (surroundedCount === 4) {
+            isolatedCells++;
+          }
+        }
+      }
+    }
+
+    // Penalize placements that create isolated cells
+    score -= isolatedCells * 50;
+
+    // Check if remaining empty space can accommodate smallest remaining pieces
+    const remainingSquares = GameLogic.getUnplacedSquares(this.gameState)
+      .filter(s => s.id !== square.id);
+
+    if (remainingSquares.length > 0) {
+      const smallestRemaining = Math.min(...remainingSquares.map(s => s.size));
+
+      // Count contiguous empty regions
+      let canFitSmallest = false;
+      for (let ty = 0; ty <= containerHeight - smallestRemaining; ty++) {
+        for (let tx = 0; tx <= containerWidth - smallestRemaining; tx++) {
+          let fits = true;
+          for (let dy = 0; dy < smallestRemaining && fits; dy++) {
+            for (let dx = 0; dx < smallestRemaining && fits; dx++) {
+              if (testState.grid[ty + dy][tx + dx] !== null) {
+                fits = false;
+              }
+            }
+          }
+          if (fits) {
+            canFitSmallest = true;
+            break;
+          }
+        }
+        if (canFitSmallest) break;
+      }
+
+      if (!canFitSmallest && smallestRemaining > 1) {
+        // This placement might create problems
+        score -= 100;
+      }
+    }
+
+    return score;
+  }
+
   private rebuildVisualState() {
     // Clear existing squares (but keep the container)
     this.squareSprites.forEach(sprite => sprite.destroy());
@@ -504,8 +638,18 @@ export class GameScene extends Phaser.Scene {
     this.squareSprites.clear();
     this.squareLabels.clear();
     this.inventorySquares = [];
-    
-    // Recreate inventory
+
+    // Reset any drag state
+    this.draggedSquare = null;
+    if (this.placementPreview) {
+      this.placementPreview.destroy();
+      this.placementPreview = null;
+    }
+
+    // Ensure input system is enabled
+    this.input.enabled = true;
+
+    // Recreate inventory (this will call setupDragAndDrop)
     this.createInventorySquares();
     
     // Recreate placed squares
@@ -558,8 +702,17 @@ export class GameScene extends Phaser.Scene {
   }
 
   private setupDragAndDrop() {
-    // Input is already enabled by default in Phaser scenes
-    
+    // Clear any existing drag event listeners to prevent duplicates
+    this.input.off('dragstart');
+    this.input.off('drag');
+    this.input.off('dragend');
+    this.input.off('pointerdown');
+    this.input.off('pointermove');
+    this.input.off('pointerup');
+
+    // Re-enable input
+    this.input.enabled = true;
+
     this.input.on('dragstart', (pointer: Phaser.Input.Pointer, gameObject: Phaser.GameObjects.Rectangle) => {
       console.log('Drag started for square:', gameObject.getData('squareId'));
       this.draggedSquare = gameObject;
@@ -1149,11 +1302,11 @@ export class GameScene extends Phaser.Scene {
 
     // Play completion sound
     this.playCompletionSound();
-    
+
     // Create celebration particle effects
     const gameWidth = this.sys.game.config.width as number;
     const gameHeight = this.sys.game.config.height as number;
-    
+
     // Multiple particle bursts
     for (let i = 0; i < 5; i++) {
       this.time.delayedCall(i * 200, () => {
@@ -1167,32 +1320,176 @@ export class GameScene extends Phaser.Scene {
         });
       });
     }
-    
-    // Update completion text with stats
+
+    // Create victory dialog
+    this.createVictoryDialog();
+
     const finalTime = GameLogic.getElapsedTime(this.gameState);
     const timeText = GameLogic.formatTime(finalTime);
-    this.completionText.setText(`Puzzle Completed!\nTime: ${timeText}\nMoves: ${this.moveCounter}`);
-    this.completionText.setVisible(true);
-    
-    // Enhanced completion animation
+    console.log(`Puzzle completed in: ${timeText} with ${this.moveCounter} moves`);
+  }
+
+  private createVictoryDialog() {
+    const gameWidth = this.sys.game.config.width as number;
+    const gameHeight = this.sys.game.config.height as number;
+
+    // Create overlay
+    const overlay = this.add.rectangle(gameWidth / 2, gameHeight / 2, gameWidth, gameHeight, 0x000000, 0.7)
+      .setInteractive()
+      .setDepth(1000);
+
+    // Victory container
+    const victoryContainer = this.add.container(gameWidth / 2, gameHeight / 2).setDepth(1001);
+
+    // Dialog panel with gradient effect
+    const panel = this.add.rectangle(0, 0, 450, 380, 0x2a2a2d)
+      .setStrokeStyle(4, 0xffd700); // Gold border for victory
+
+    // Trophy emoji or victory icon
+    const victoryIcon = this.add.text(0, -130, '🏆', {
+      fontSize: '64px'
+    }).setOrigin(0.5);
+
+    // Victory title
+    const title = this.add.text(0, -60, 'VICTORY!', {
+      fontSize: '42px',
+      color: '#ffd700',
+      fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif',
+      fontStyle: 'bold',
+      stroke: '#000000',
+      strokeThickness: 3
+    }).setOrigin(0.5);
+
+    // Get stats
+    const finalTime = GameLogic.getElapsedTime(this.gameState);
+    const timeText = GameLogic.formatTime(finalTime);
+
+    // Stats container
+    const statsY = 20;
+
+    // Time stat
+    const timeLabel = this.add.text(-100, statsY, 'Time:', {
+      fontSize: '20px',
+      color: '#888888',
+      fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif'
+    }).setOrigin(0, 0.5);
+
+    const timeValue = this.add.text(100, statsY, timeText, {
+      fontSize: '24px',
+      color: '#4ecdc4',
+      fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif',
+      fontStyle: 'bold'
+    }).setOrigin(1, 0.5);
+
+    // Moves stat
+    const movesLabel = this.add.text(-100, statsY + 40, 'Moves:', {
+      fontSize: '20px',
+      color: '#888888',
+      fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif'
+    }).setOrigin(0, 0.5);
+
+    const movesValue = this.add.text(100, statsY + 40, this.moveCounter.toString(), {
+      fontSize: '24px',
+      color: '#4ecdc4',
+      fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif',
+      fontStyle: 'bold'
+    }).setOrigin(1, 0.5);
+
+    // Difficulty stat
+    const diffLabel = this.add.text(-100, statsY + 80, 'Difficulty:', {
+      fontSize: '20px',
+      color: '#888888',
+      fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif'
+    }).setOrigin(0, 0.5);
+
+    const diffValue = this.add.text(100, statsY + 80, this.difficulty.toUpperCase(), {
+      fontSize: '24px',
+      color: '#4ecdc4',
+      fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif',
+      fontStyle: 'bold'
+    }).setOrigin(1, 0.5);
+
+    // Button container
+    const buttonY = 150;
+
+    // Play Again button
+    const playAgainBtn = this.add.rectangle(-80, buttonY, 140, 45, 0x4ecdc4)
+      .setStrokeStyle(2, 0x45b7d1)
+      .setInteractive({ useHandCursor: true })
+      .on('pointerover', () => playAgainBtn.setFillStyle(0x45b7d1))
+      .on('pointerout', () => playAgainBtn.setFillStyle(0x4ecdc4))
+      .on('pointerdown', () => {
+        this.playButtonSound();
+        // Restart the scene completely for a clean state
+        this.scene.restart({ difficulty: this.difficulty, isRestart: true });
+      });
+
+    const playAgainText = this.add.text(-80, buttonY, 'PLAY AGAIN', {
+      fontSize: '16px',
+      color: '#000000',
+      fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif',
+      fontStyle: 'bold'
+    }).setOrigin(0.5);
+
+    // Menu button
+    const menuBtn = this.add.rectangle(80, buttonY, 140, 45, 0x666666)
+      .setStrokeStyle(2, 0x888888)
+      .setInteractive({ useHandCursor: true })
+      .on('pointerover', () => menuBtn.setFillStyle(0x777777))
+      .on('pointerout', () => menuBtn.setFillStyle(0x666666))
+      .on('pointerdown', () => {
+        this.playButtonSound();
+        this.scene.start('MainMenuScene');
+      });
+
+    const menuText = this.add.text(80, buttonY, 'MAIN MENU', {
+      fontSize: '16px',
+      color: '#ffffff',
+      fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif',
+      fontStyle: 'bold'
+    }).setOrigin(0.5);
+
+    // Add all elements to container
+    victoryContainer.add([
+      panel, victoryIcon, title,
+      timeLabel, timeValue,
+      movesLabel, movesValue,
+      diffLabel, diffValue,
+      playAgainBtn, playAgainText,
+      menuBtn, menuText
+    ]);
+
+    // Animate dialog entrance
+    victoryContainer.setScale(0);
+    victoryContainer.setAlpha(0);
+
     this.tweens.add({
-      targets: this.completionText,
-      scaleX: 1.3,
-      scaleY: 1.3,
-      duration: 800,
-      ease: 'Bounce.easeOut'
+      targets: victoryContainer,
+      scaleX: 1,
+      scaleY: 1,
+      alpha: 1,
+      duration: 500,
+      ease: 'Back.easeOut'
     });
-    
-    // Add pulsing effect
+
+    // Animate title
     this.tweens.add({
-      targets: this.completionText,
-      alpha: 0.8,
-      duration: 1000,
+      targets: title,
+      scaleX: 1.1,
+      scaleY: 1.1,
+      duration: 1500,
       yoyo: true,
       repeat: -1,
-      delay: 800
+      ease: 'Sine.easeInOut'
     });
-    
-    console.log(`Puzzle completed in: ${timeText} with ${this.moveCounter} moves`);
+
+    // Rotate trophy
+    this.tweens.add({
+      targets: victoryIcon,
+      angle: 360,
+      duration: 3000,
+      repeat: -1,
+      ease: 'Linear'
+    });
   }
 }

@@ -37,11 +37,3 @@ const config: Phaser.Types.Core.GameConfig = {
 };
 
 export const game = new Phaser.Game(config);
-
-// Update timer display
-const timerElement = document.getElementById('timer');
-if (timerElement) {
-  setInterval(() => {
-    // This will be handled by the game scene
-  }, 1000);
-}
