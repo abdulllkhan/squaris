@@ -21,6 +21,7 @@ export class GameScene extends Phaser.Scene {
   private undoButton!: Phaser.GameObjects.Rectangle;
   private restartButton!: Phaser.GameObjects.Rectangle;
   private hintButton!: Phaser.GameObjects.Rectangle;
+  private shuffleButton!: Phaser.GameObjects.Rectangle;
   private gameHistory: GameState[] = [];
   private particleEmitter!: Phaser.GameObjects.Particles.ParticleEmitter;
   private soundEnabled: boolean = localStorage.getItem('soundEnabled') !== 'false';
@@ -317,7 +318,7 @@ export class GameScene extends Phaser.Scene {
       })
       .on('pointerover', () => this.hintButton.setFillStyle(0x5a5a5a))
       .on('pointerout', () => this.hintButton.setFillStyle(0x4a4a4a));
-    
+
     const hintText = this.add.text(0, 80, 'HINT', {
       fontSize: '14px',
       color: '#ffffff',
@@ -325,7 +326,7 @@ export class GameScene extends Phaser.Scene {
       fontStyle: 'bold',
       resolution: 3
     }).setOrigin(0.5);
-    
+
     this.gameControls.add([menuBtn, menuText, this.undoButton, undoText, this.restartButton, restartText, this.hintButton, hintText]);
   }
 
@@ -1136,16 +1137,60 @@ export class GameScene extends Phaser.Scene {
     console.log(`Made space for square ${squareId} in inventory`);
   }
 
-  private reorganizeInventory() {
-    const startY = this.containerY + (this.gameState.puzzle.container.height + 2) * this.cellSize;
-    
-    // Sort inventory squares by their square ID to maintain consistent order
-    this.inventorySquares.sort((a, b) => {
-      const idA = a.getData('squareId') as number;
-      const idB = b.getData('squareId') as number;
-      return idA - idB;
+  private shuffleInventory() {
+    // Only shuffle if there are inventory squares
+    if (this.inventorySquares.length === 0) return;
+
+    // Fisher-Yates shuffle algorithm
+    const shuffled = [...this.inventorySquares];
+    for (let i = shuffled.length - 1; i > 0; i--) {
+      const j = Math.floor(Math.random() * (i + 1));
+      [shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]];
+    }
+
+    // Update the inventory array
+    this.inventorySquares = shuffled;
+
+    // Now reorganize with the new order
+    this.reorganizeInventory();
+
+    // Visual feedback with color pulse
+    this.tweens.add({
+      targets: this.shuffleButton,
+      scaleX: 0.9,
+      scaleY: 0.9,
+      duration: 100,
+      yoyo: true
     });
-    
+
+    // Also animate the text
+    const shuffleTextObj = this.children.list.find(
+      child => child instanceof Phaser.GameObjects.Text &&
+      (child as Phaser.GameObjects.Text).text === 'SHUFFLE BLOCKS'
+    );
+    if (shuffleTextObj) {
+      this.tweens.add({
+        targets: shuffleTextObj,
+        scaleX: 0.9,
+        scaleY: 0.9,
+        duration: 100,
+        yoyo: true
+      });
+    }
+  }
+
+  private reorganizeInventory(maintainOrder: boolean = true) {
+    const startY = this.containerY + (this.gameState.puzzle.container.height + 2) * this.cellSize;
+
+    // Only sort if we want to maintain the original order (not when shuffling)
+    if (!maintainOrder) {
+      this.inventorySquares.sort((a, b) => {
+        const idA = a.getData('squareId') as number;
+        const idB = b.getData('squareId') as number;
+        return idA - idB;
+      });
+    }
+
     // Calculate total width needed for reorganized squares
     const spacing = 10;
     const totalWidth = this.inventorySquares.reduce((total, sprite, index) => {
@@ -1153,11 +1198,11 @@ export class GameScene extends Phaser.Scene {
       const squareWidth = size * this.cellSize;
       return total + squareWidth + (index > 0 ? spacing : 0);
     }, 0);
-    
+
     // Center the reorganized inventory horizontally
     const gameWidth = this.sys.game.config.width as number;
     const startX = (gameWidth - totalWidth) / 2;
-    
+
     // Animate each square to its new centered position
     let currentX = startX;
     this.inventorySquares.forEach((sprite, index) => {
@@ -1165,17 +1210,17 @@ export class GameScene extends Phaser.Scene {
       const squareWidth = size * this.cellSize;
       const newX = currentX + squareWidth / 2;
       const newY = startY;
-      
+
       currentX += squareWidth + spacing;
-      
+
       // Update stored original position
       sprite.setData('originalX', newX);
       sprite.setData('originalY', newY);
-      
+
       // Get the corresponding label
       const squareId = sprite.getData('squareId') as number;
       const label = this.squareLabels.get(squareId);
-      
+
       // Smooth animation to new position for both sprite and label
       this.tweens.add({
         targets: sprite,
@@ -1184,7 +1229,7 @@ export class GameScene extends Phaser.Scene {
         duration: 200,
         ease: 'Power2'
       });
-      
+
       if (label) {
         this.tweens.add({
           targets: label,
@@ -1195,7 +1240,7 @@ export class GameScene extends Phaser.Scene {
         });
       }
     });
-    
+
     console.log(`Reorganized ${this.inventorySquares.length} inventory squares`);
   }
 
@@ -1242,6 +1287,25 @@ export class GameScene extends Phaser.Scene {
       fontStyle: 'bold',
       resolution: 3
     });
+
+    // Shuffle button on the left side with distinct color - properly aligned
+    this.shuffleButton = this.add.rectangle(90, 155, 140, 32, 0x4ecdc4)
+      .setStrokeStyle(3, 0x26a69a)
+      .setInteractive({ useHandCursor: true })
+      .on('pointerdown', () => {
+        this.playButtonSound();
+        this.shuffleInventory();
+      })
+      .on('pointerover', () => this.shuffleButton.setFillStyle(0x6edddd))
+      .on('pointerout', () => this.shuffleButton.setFillStyle(0x4ecdc4));
+
+    const shuffleText = this.add.text(90, 155, 'SHUFFLE BLOCKS', {
+      fontSize: '14px',
+      color: '#000000',
+      fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif',
+      fontStyle: 'bold',
+      resolution: 3
+    }).setOrigin(0.5).setDepth(10);
     
     // Completion text (hidden initially)
     this.completionText = this.add.text(
