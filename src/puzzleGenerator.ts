@@ -111,29 +111,97 @@ export class PuzzleGenerator {
     const sizeProbabilities = this.getSizeProbabilities(difficulty);
     const maxSquareSize = Math.min(container.width, container.height, 5); // Cap at 5x5
 
+    // Track count of each block size
+    const maxDimension = Math.max(container.width, container.height);
+    const minDimension = Math.min(container.width, container.height);
+    const totalCells = container.width * container.height;
+
+    const blockCounts: { [size: number]: number } = {
+      1: 0,
+      2: 0,
+      3: 0,
+      4: 0,
+      5: 0
+    };
+
+    // Set reasonable limits but prioritize filling the container completely
+    const maxBlocksPerSize: { [size: number]: number } = {
+      1: Math.min(maxDimension * 2, totalCells), // Allow more 1x1 to ensure filling
+      2: totalCells,
+      3: totalCells,
+      4: totalCells,
+      5: totalCells
+    };
+
     let attempts = 0;
-    const maxAttempts = 1500;
+    const maxAttempts = 3000; // Increased to ensure better filling
     let consecutiveFailures = 0;
 
+    // Keep trying until we fill ALL spaces
     while (this.hasEmptySpaces(grid) && attempts < maxAttempts) {
       attempts++;
 
       // Dynamic size selection - adapt based on remaining space
       const remainingCells = this.countEmptyCells(grid);
-      const totalCells = container.width * container.height;
       const fillRatio = 1 - (remainingCells / totalCells);
 
-      // As we fill more, prefer smaller sizes
+      // As we fill more, prefer smaller sizes but avoid too many 1x1
       let size: number;
       if (fillRatio > 0.7 || consecutiveFailures > 3) {
-        // When mostly full or after failures, prefer smaller sizes
-        size = Math.min(2, maxSquareSize);
-        if (random() > 0.5 && maxSquareSize > 1) {
+        // When mostly full or after failures, prefer 2x2 over 1x1
+        if (maxSquareSize >= 2 && blockCounts[2] < maxBlocksPerSize[2]) {
+          // Check if we can still place 2x2 blocks
+          if (blockCounts[1] >= maxBlocksPerSize[1]) {
+            size = 2; // Force 2x2 if we've hit 1x1 limit
+          } else {
+            // Much lower chance of 1x1 now
+            size = random() > 0.15 ? 2 : 1; // 85% chance of 2x2, only 15% chance of 1x1
+          }
+        } else if (blockCounts[1] < maxBlocksPerSize[1]) {
           size = 1;
+        } else {
+          // Try any size we haven't maxed out
+          size = 0;
+          for (let s = 2; s <= maxSquareSize; s++) {
+            if (blockCounts[s] < maxBlocksPerSize[s]) {
+              size = s;
+              break;
+            }
+          }
+          if (size === 0) continue; // Skip if all sizes are maxed
         }
       } else {
-        // Normal selection based on difficulty
+        // Normal selection based on difficulty, but check limits
         size = this.chooseSizeByProbability(sizeProbabilities, maxSquareSize, random);
+
+        // If chosen size is at limit, find alternative
+        if (blockCounts[size] >= maxBlocksPerSize[size]) {
+          let alternativeFound = false;
+          // Try larger sizes first (better for gameplay)
+          for (let s = size + 1; s <= maxSquareSize; s++) {
+            if (blockCounts[s] < maxBlocksPerSize[s]) {
+              size = s;
+              alternativeFound = true;
+              break;
+            }
+          }
+          // If no larger size available, try smaller (but avoid 1x1 if possible)
+          if (!alternativeFound) {
+            for (let s = size - 1; s >= 2; s--) {
+              if (blockCounts[s] < maxBlocksPerSize[s]) {
+                size = s;
+                alternativeFound = true;
+                break;
+              }
+            }
+            // Only use 1x1 as absolute last resort
+            if (!alternativeFound && blockCounts[1] < maxBlocksPerSize[1]) {
+              size = 1;
+              alternativeFound = true;
+            }
+          }
+          if (!alternativeFound) continue; // Skip if no valid size available
+        }
       }
 
       // Find valid placement
@@ -149,13 +217,17 @@ export class PuzzleGenerator {
           placed: false
         });
 
+        blockCounts[size]++; // Track block count
         squareId++;
         consecutiveFailures = 0;
       } else {
         consecutiveFailures++;
-        // If we can't place the chosen size, try ALL smaller sizes
+        // If we can't place the chosen size, try smaller sizes (prefer 2x2 over 1x1)
         let placed = false;
-        for (let trySize = Math.min(size - 1, 3); trySize >= 1; trySize--) {
+        // Try sizes in order: 4x4, 3x3, 2x2, avoiding 1x1 unless necessary
+        const tryOrder = [4, 3, 2].filter(s => s < size && s <= maxSquareSize && blockCounts[s] < maxBlocksPerSize[s]);
+
+        for (let trySize of tryOrder) {
           const smallerPlacement = this.findValidPlacement(grid, trySize, random);
           if (smallerPlacement) {
             this.placeSquareOnGrid(grid, smallerPlacement.x, smallerPlacement.y, trySize, squareId);
@@ -164,6 +236,7 @@ export class PuzzleGenerator {
               size: trySize,
               placed: false
             });
+            blockCounts[trySize]++; // Track block count
             squareId++;
             placed = true;
             consecutiveFailures = 0;
@@ -171,20 +244,69 @@ export class PuzzleGenerator {
           }
         }
 
-        // If still can't place anything, try to fill single cells
-        if (!placed && remainingCells < 10) {
-          const emptyCell = this.findRandomEmptyCell(grid, random);
-          if (emptyCell) {
-            this.placeSquareOnGrid(grid, emptyCell.x, emptyCell.y, 1, squareId);
-            squares.push({
-              id: squareId,
-              size: 1,
-              placed: false
-            });
-            squareId++;
+        // If still can't place larger blocks, we MUST fill the space somehow
+        if (!placed) {
+          // First try 1x1 if under limit
+          if (blockCounts[1] < maxBlocksPerSize[1]) {
+            const emptyCell = this.findRandomEmptyCell(grid, random);
+            if (emptyCell) {
+              this.placeSquareOnGrid(grid, emptyCell.x, emptyCell.y, 1, squareId);
+              squares.push({
+                id: squareId,
+                size: 1,
+                placed: false
+              });
+              blockCounts[1]++;
+              squareId++;
+              placed = true;
+            }
+          }
+
+          // If we can't place 1x1 (at limit), we must try other sizes to fill gaps
+          if (!placed && remainingCells > 0) {
+            // Try ANY size that fits and isn't at limit
+            for (let s = 2; s <= Math.min(maxSquareSize, 3); s++) {
+              if (blockCounts[s] < maxBlocksPerSize[s]) {
+                const placement = this.findValidPlacement(grid, s, random);
+                if (placement) {
+                  this.placeSquareOnGrid(grid, placement.x, placement.y, s, squareId);
+                  squares.push({
+                    id: squareId,
+                    size: s,
+                    placed: false
+                  });
+                  blockCounts[s]++;
+                  squareId++;
+                  break;
+                }
+              }
+            }
           }
         }
       }
+    }
+
+    // CRITICAL: Fill any remaining empty cells with 1x1 blocks to ensure complete coverage
+    while (this.hasEmptySpaces(grid)) {
+      const emptyCell = this.findRandomEmptyCell(grid, random);
+      if (emptyCell) {
+        this.placeSquareOnGrid(grid, emptyCell.x, emptyCell.y, 1, squareId);
+        squares.push({
+          id: squareId,
+          size: 1,
+          placed: false
+        });
+        squareId++;
+        blockCounts[1]++;
+      } else {
+        break; // Safety check to prevent infinite loop
+      }
+    }
+
+    // Verify we filled everything
+    const finalEmptyCells = this.countEmptyCells(grid);
+    if (finalEmptyCells > 0) {
+      console.warn(`Warning: ${finalEmptyCells} cells remain empty in container ${container.width}x${container.height}`);
     }
 
     // Shuffle squares for presentation
@@ -194,16 +316,16 @@ export class PuzzleGenerator {
   private static getSizeProbabilities(difficulty: 'easy' | 'medium' | 'difficult'): number[] {
     switch (difficulty) {
       case 'easy':
-        // Easy: More variety, favor medium to large squares
-        return [0.15, 0.25, 0.35, 0.20, 0.05]; // [1x1, 2x2, 3x3, 4x4, 5x5+]
+        // Easy: Favor larger squares, minimal 1x1
+        return [0.05, 0.20, 0.40, 0.25, 0.10]; // [1x1, 2x2, 3x3, 4x4, 5x5+]
       case 'medium':
-        // Medium: Balanced mix with more small-medium pieces
-        return [0.25, 0.35, 0.25, 0.10, 0.05]; // More 1x1 and 2x2, some 3x3
+        // Medium: Balanced mix, limited 1x1
+        return [0.10, 0.30, 0.35, 0.20, 0.05]; // Few 1x1, more 2x2 and 3x3
       case 'difficult':
-        // Difficult: Lots of small pieces, very few large
-        return [0.40, 0.35, 0.15, 0.08, 0.02]; // Mostly 1x1 and 2x2
+        // Difficult: More small pieces but still limited 1x1
+        return [0.15, 0.40, 0.30, 0.10, 0.05]; // Some 1x1 but mostly 2x2 and 3x3
       default:
-        return [0.25, 0.35, 0.25, 0.10, 0.05];
+        return [0.10, 0.30, 0.35, 0.20, 0.05];
     }
   }
 

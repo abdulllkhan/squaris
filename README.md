@@ -1,25 +1,41 @@
-# Squaris - Reddit Square Packing Game
+# Squaris - Square Packing Puzzle Game
 
-A daily puzzle game where players pack square pieces into a container with no gaps or overlaps. Built for Reddit's platform using Phaser.js.
+A challenging spatial puzzle game where players pack square pieces into a container with no gaps or overlaps. Built with Phaser.js and TypeScript.
 
-## 🎮 Game Features
+## Game Features
 
 - **Daily Puzzles**: New puzzle every day with date-seeded generation
-- **Reverse Construction Algorithm**: Guarantees every puzzle is solvable
-- **Difficulty Levels**: Mostly medium difficulty with random easy/hard puzzles
-- **Drag & Drop Interface**: Intuitive square placement with grid snapping
-- **Time Tracking**: Track solve times for future leaderboards
-- **Smart Container Sizing**: Max 1.5:1 aspect ratio constraint
+- **Three Difficulty Levels**: Easy, Medium, and Difficult modes with different grid sizes and piece distributions
+- **Reverse Construction Algorithm**: Guarantees every puzzle is solvable with complete container coverage
+- **Drag & Drop Interface**: Intuitive square placement with grid snapping and visual feedback
+- **Game Controls**:
+  - **UNDO**: Reverse your last move
+  - **RESTART**: Generate a new puzzle
+  - **HINT**: Shows optimal placement suggestion
+  - **SHUFFLE BLOCKS**: Randomize inventory arrangement for fresh perspective
+- **Time & Move Tracking**: Track solve times and move count
+- **Smart Container Sizing**: Adaptive sizing based on difficulty (5x4 to 12x10)
+- **Visual Polish**: High-resolution text, particle effects, sound effects
+- **Settings**: Toggle sound effects and timer display
 
-## 🎯 How to Play
+## How to Play
 
 1. **Objective**: Fill the gray container completely using all square pieces
-2. **Drag & Drop**: Drag squares from the inventory area into the container
-3. **Grid Snapping**: Squares automatically snap to the grid
-4. **No Overlaps**: Squares can't overlap or exceed container boundaries
-5. **Win Condition**: Place all squares to fill the container completely
+2. **Controls**:
+   - **Drag & Drop**: Drag squares from inventory into the container
+   - **Click to Remove**: Click placed squares to return them to inventory
+   - **Grid Snapping**: Squares automatically snap to the grid
+3. **Rules**:
+   - No overlaps allowed between squares
+   - Squares can't exceed container boundaries
+   - All squares must be placed to win
+4. **Strategy Tips**:
+   - Place larger squares first
+   - Use the HINT button when stuck
+   - SHUFFLE inventory for new perspectives
+   - UNDO moves to try different approaches
 
-## 🛠️ Development
+## Development
 
 ### Prerequisites
 - Node.js v22.2.0+ (recommended for Reddit Devvit)
@@ -44,7 +60,7 @@ npm test           # Run all tests
 npm run test:watch # Watch mode for tests
 ```
 
-## 🏗️ Architecture
+## Architecture
 
 ### Core Components
 
@@ -68,15 +84,15 @@ npm run test:watch # Watch mode for tests
 - **Medium (70%)**: 5-7 mixed-size squares, moderate complexity
 - **Difficult (15%)**: 8-10+ squares with many smaller pieces
 
-## 📊 Test Coverage
+## Test Coverage
 
-- ✅ 29 tests passing
-- ✅ Puzzle generation validation
-- ✅ Game logic comprehensive testing
-- ✅ Win condition verification
-- ✅ Time tracking functionality
+- 29 tests passing
+- Puzzle generation validation
+- Game logic comprehensive testing
+- Win condition verification
+- Time tracking functionality
 
-## 🎪 Future Reddit Integration
+## Future Reddit Integration
 
 This game is designed for Reddit's Devvit platform:
 
@@ -86,7 +102,7 @@ This game is designed for Reddit's Devvit platform:
 - **Social Sharing**: Screenshot solutions to Reddit
 - **Achievement System**: Streak badges and flair
 
-## 🎨 Visual Design
+## Visual Design
 
 - **Reddit-themed**: Dark mode color scheme
 - **Grid-based**: Clear container boundaries
@@ -94,7 +110,7 @@ This game is designed for Reddit's Devvit platform:
 - **Responsive**: Works on desktop and mobile
 - **Accessibility**: High contrast, clear typography
 
-## 📁 Project Structure
+## Project Structure
 
 ```
 src/
@@ -109,14 +125,14 @@ tests/
 └── gameLogic.test.ts      # Game logic tests
 ```
 
-## 🔧 Configuration
+## Configuration
 
 - **Container Size**: 4x4 to 12x8 units
 - **Aspect Ratio**: Max 1.5:1 (longer:shorter)
 - **Cell Size**: 40px for optimal visibility
 - **Timer**: Real-time tracking from first move
 
-## 🚀 Getting Started
+## Getting Started
 
 1. **Clone the repository**
 2. **Install dependencies**: `npm install`
@@ -124,17 +140,17 @@ tests/
 4. **Open browser**: Navigate to `http://localhost:3000`
 5. **Play the game**: Drag squares into the container!
 
-## 🧪 Testing the Game
+## Testing the Game
 
 The game is now ready for testing! Key features to test:
 
-- ✅ Daily puzzle generation (consistent per date)
-- ✅ Drag and drop functionality
-- ✅ Grid snapping and placement validation
-- ✅ Win condition detection
-- ✅ Time tracking
-- ✅ Responsive design
+- Daily puzzle generation (consistent per date)
+- Drag and drop functionality
+- Grid snapping and placement validation
+- Win condition detection
+- Time tracking
+- Responsive design
 
 ---
 
-**Built with ❤️ for Reddit's Fun and Games Hackathon**
+**Built for puzzle enthusiasts**
