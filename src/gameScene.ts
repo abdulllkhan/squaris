@@ -37,12 +37,15 @@ export class GameScene extends Phaser.Scene {
     this.load.image('particle', 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNkYPhfDwAChwGA60e6kgAAAABJRU5ErkJggg==');
   }
 
-  create(data?: { difficulty?: 'easy' | 'medium' | 'difficult' }) {
+  create(data?: { difficulty?: 'easy' | 'medium' | 'difficult'; isRestart?: boolean }) {
     // Get difficulty from scene data or use default
     this.difficulty = data?.difficulty || 'medium';
+
     // Generate puzzle based on difficulty
+    // Use a unique seed on restart to get different puzzles
     const today = new Date().toISOString().split('T')[0];
-    const puzzle = PuzzleGenerator.generateDailyPuzzle(today, this.difficulty);
+    const seed = data?.isRestart ? `${today}-${Date.now()}` : today;
+    const puzzle = PuzzleGenerator.generateDailyPuzzle(seed, this.difficulty);
     this.gameState = GameLogic.createInitialGameState(puzzle);
 
     // Set up the game layout
@@ -413,20 +416,8 @@ export class GameScene extends Phaser.Scene {
   }
 
   private restartGame(_pointer?: Phaser.Input.Pointer) {
-    // Reset game state with current difficulty
-    const today = new Date().toISOString().split('T')[0];
-    const puzzle = PuzzleGenerator.generateDailyPuzzle(today, this.difficulty);
-    this.gameState = GameLogic.createInitialGameState(puzzle);
-    this.moveCounter = 0;
-    this.gameHistory = [];
-    this.saveGameState();
-    
-    // Rebuild visuals
-    this.rebuildVisualState();
-    this.updateUI();
-    
-    // Hide completion text
-    this.completionText.setVisible(false);
+    // Complete scene restart for clean state with new puzzle
+    this.scene.restart({ difficulty: this.difficulty, isRestart: true });
     
     // Visual feedback
     this.tweens.add({
@@ -504,7 +495,14 @@ export class GameScene extends Phaser.Scene {
     this.squareSprites.clear();
     this.squareLabels.clear();
     this.inventorySquares = [];
-    
+
+    // Reset any drag state
+    this.draggedSquare = null;
+    if (this.placementPreview) {
+      this.placementPreview.destroy();
+      this.placementPreview = null;
+    }
+
     // Recreate inventory
     this.createInventorySquares();
     
@@ -1267,9 +1265,8 @@ export class GameScene extends Phaser.Scene {
       .on('pointerout', () => playAgainBtn.setFillStyle(0x4ecdc4))
       .on('pointerdown', () => {
         this.playButtonSound();
-        overlay.destroy();
-        victoryContainer.destroy();
-        this.restartGame();
+        // Restart the scene completely for a clean state
+        this.scene.restart({ difficulty: this.difficulty, isRestart: true });
       });
 
     const playAgainText = this.add.text(-80, buttonY, 'PLAY AGAIN', {
