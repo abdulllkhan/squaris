@@ -383,8 +383,18 @@ export class GameScene extends Phaser.Scene {
   }
 
   private saveGameState() {
+    // Deep clone the entire game state including puzzle data
+    const stateToSave = {
+      ...this.gameState,
+      puzzle: {
+        ...this.gameState.puzzle,
+        squares: this.gameState.puzzle.squares.map(s => ({...s}))
+      },
+      grid: this.gameState.grid.map(row => [...row])
+    };
+
     // Save current game state for undo functionality
-    this.gameHistory.push(JSON.parse(JSON.stringify(this.gameState)));
+    this.gameHistory.push(JSON.parse(JSON.stringify(stateToSave)));
     // Keep only last 10 moves
     if (this.gameHistory.length > 10) {
       this.gameHistory.shift();
@@ -393,17 +403,39 @@ export class GameScene extends Phaser.Scene {
 
   private undoLastMove(_pointer?: Phaser.Input.Pointer) {
     if (this.gameHistory.length > 1) {
+      console.log('Undo: Starting undo operation');
+
       // Remove current state
       this.gameHistory.pop();
       // Restore previous state
       const previousState = JSON.parse(JSON.stringify(this.gameHistory[this.gameHistory.length - 1]));
       this.gameState = previousState;
+
+      console.log('Undo: State restored, isCompleted =', this.gameState.isCompleted);
+
+      // IMPORTANT: Ensure the game is not marked as completed after undo
+      this.gameState.isCompleted = false;
+
+      // Reset move counter
       this.moveCounter = Math.max(0, this.moveCounter - 1);
-      
+
+      // Clear any drag state that might be lingering
+      this.draggedSquare = null;
+      if (this.placementPreview) {
+        this.placementPreview.destroy();
+        this.placementPreview = null;
+      }
+
+      // Re-enable input in case it was disabled
+      this.input.enabled = true;
+
+      console.log('Undo: Rebuilding visual state');
       // Rebuild the visual state
       this.rebuildVisualState();
       this.updateUI();
-      
+
+      console.log('Undo: Complete, inventory has', this.inventorySquares.length, 'squares');
+
       // Visual feedback
       this.tweens.add({
         targets: this.undoButton,
@@ -503,7 +535,10 @@ export class GameScene extends Phaser.Scene {
       this.placementPreview = null;
     }
 
-    // Recreate inventory
+    // Ensure input system is enabled
+    this.input.enabled = true;
+
+    // Recreate inventory (this will call setupDragAndDrop)
     this.createInventorySquares();
     
     // Recreate placed squares
@@ -556,8 +591,17 @@ export class GameScene extends Phaser.Scene {
   }
 
   private setupDragAndDrop() {
-    // Input is already enabled by default in Phaser scenes
-    
+    // Clear any existing drag event listeners to prevent duplicates
+    this.input.off('dragstart');
+    this.input.off('drag');
+    this.input.off('dragend');
+    this.input.off('pointerdown');
+    this.input.off('pointermove');
+    this.input.off('pointerup');
+
+    // Re-enable input
+    this.input.enabled = true;
+
     this.input.on('dragstart', (pointer: Phaser.Input.Pointer, gameObject: Phaser.GameObjects.Rectangle) => {
       console.log('Drag started for square:', gameObject.getData('squareId'));
       this.draggedSquare = gameObject;
