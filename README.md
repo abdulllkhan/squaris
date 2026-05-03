@@ -81,22 +81,63 @@ tests/
 ### Prerequisites
 
 - Node.js v18+ (v22+ recommended for Reddit Devvit deployment)
+- [`just`](https://github.com/casey/just) command runner (`brew install just`) — optional but recommended; gives you `just <recipe>` shortcuts for common tasks
 
 ### Setup
 
 ```bash
-npm install
+just install     # or: npm install
 ```
 
 ### Scripts
 
 ```bash
-npm run dev      # Vite dev server at http://localhost:3000
-npm run build    # Production build (output: dist/)
-npm run preview  # Serve the built bundle locally
-npm test         # Run unit tests
-npm run lint     # ESLint
+just dev         # Vite dev server at http://localhost:3000
+just build       # Production build (output: dist/)
+just preview     # Serve the built bundle locally
+just test        # Run unit tests
+just typecheck   # TypeScript type-check without emit
+just check       # typecheck + test + build
+just             # list every available recipe
 ```
+
+Equivalent npm commands work too if you don't have `just`: `npm run dev`, `npm run build`, `npm test`, etc.
+
+## Deployment
+
+The app deploys to **Vercel** as a static SPA — no server, no env vars, no build config needed. Vercel auto-detects Vite and outputs from `./dist`.
+
+### First time
+
+```bash
+just vercel-install   # npm i -g vercel
+just vercel-login     # browser flow
+just deploy           # production deploy → *.vercel.app URL
+```
+
+### Every time after
+
+```bash
+just deploy           # → production
+just deploy-preview   # → preview URL (won't replace prod)
+```
+
+### Pre-flight check before shipping
+
+```bash
+just ship             # runs typecheck + tests + build, then deploys to prod
+```
+
+### Useful operational recipes
+
+```bash
+just deployments      # list recent deploys
+just logs             # tail latest production logs
+just rollback <url>   # roll back to a previous deployment URL
+just relink           # re-link this directory to a different Vercel project
+```
+
+If you'd rather use the Vercel dashboard, you can also import the GitHub repo at https://vercel.com/new and every push to `main` auto-deploys.
 
 ## Design system
 

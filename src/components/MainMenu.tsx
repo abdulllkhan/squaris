@@ -7,9 +7,10 @@ interface Props {
   difficulty: Difficulty;
   onDifficultyChange: (d: Difficulty) => void;
   onPlay: (d: Difficulty) => void;
+  onPlay3D: () => void;
 }
 
-export function MainMenu({ difficulty, onDifficultyChange, onPlay }: Props) {
+export function MainMenu({ difficulty, onDifficultyChange, onPlay, onPlay3D }: Props) {
   const [modal, setModal] = useState<'settings' | 'about' | null>(null);
 
   const today = new Date().toLocaleDateString('en-US', {
@@ -69,6 +70,20 @@ export function MainMenu({ difficulty, onDifficultyChange, onPlay }: Props) {
             play_arrow
           </span>
           PLAY NOW
+        </button>
+
+        {/* 3D Mode Button */}
+        <button
+          onClick={() => {
+            sfx.click();
+            onPlay3D();
+          }}
+          className="w-full bg-surface border-2 border-accent text-accent hover:bg-accent hover:text-white py-5 rounded-lg font-bold text-lg flex items-center justify-center gap-3 active:scale-[0.98] transition-all shadow-accent-soft mb-3 group"
+        >
+          <span className="material-symbols-outlined text-2xl group-hover:rotate-12 transition-transform">
+            view_in_ar
+          </span>
+          EXPLORE SQUARIS 3D
         </button>
 
         {/* Difficulty Segmented Control */}
