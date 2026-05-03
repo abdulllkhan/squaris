@@ -113,7 +113,6 @@ export class PuzzleGenerator {
 
     // Track count of each block size
     const maxDimension = Math.max(container.width, container.height);
-    const minDimension = Math.min(container.width, container.height);
     const totalCells = container.width * container.height;
 
     const blockCounts: { [size: number]: number } = {
