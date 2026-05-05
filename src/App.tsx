@@ -1,32 +1,32 @@
 import { lazy, Suspense, useState } from 'react';
 import { MainMenu } from './components/MainMenu';
 import { Game } from './components/Game';
-import type { Squaris3DMode } from './components/Squaris3D';
+import { parseDifficulty, parseMode3D } from './lib/preferences';
+import type { Difficulty as DifficultyT, Squaris3DMode as Squaris3DModeT } from './lib/preferences';
 
 const Squaris3D = lazy(() =>
   import('./components/Squaris3D').then(m => ({ default: m.Squaris3D }))
 );
 
-export type Difficulty = 'easy' | 'medium' | 'difficult';
+export type Difficulty = DifficultyT;
+export type Squaris3DMode = Squaris3DModeT;
 
+const DIFFICULTY_KEY = 'selectedDifficulty';
 const SQUARIS3D_MODE_KEY = 'squaris3dMode';
-
-function loadMode3D(): Squaris3DMode {
-  const stored = localStorage.getItem(SQUARIS3D_MODE_KEY);
-  return stored === 'bent' ? 'bent' : 'cubes';
-}
 
 export function App() {
   const [view, setView] = useState<'menu' | 'game' | 'game3d'>('menu');
-  const [difficulty, setDifficulty] = useState<Difficulty>(
-    (localStorage.getItem('selectedDifficulty') as Difficulty) || 'medium'
+  const [difficulty, setDifficulty] = useState<Difficulty>(() =>
+    parseDifficulty(localStorage.getItem(DIFFICULTY_KEY)),
   );
   const [gameKey, setGameKey] = useState(0);
-  const [mode3d, setMode3d] = useState<Squaris3DMode>(loadMode3D);
+  const [mode3d, setMode3d] = useState<Squaris3DMode>(() =>
+    parseMode3D(localStorage.getItem(SQUARIS3D_MODE_KEY)),
+  );
 
   const startGame = (d: Difficulty) => {
     setDifficulty(d);
-    localStorage.setItem('selectedDifficulty', d);
+    localStorage.setItem(DIFFICULTY_KEY, d);
     setGameKey(k => k + 1);
     setView('game');
   };
@@ -34,6 +34,11 @@ export function App() {
   const handleModeChange = (m: Squaris3DMode) => {
     setMode3d(m);
     localStorage.setItem(SQUARIS3D_MODE_KEY, m);
+  };
+
+  const startGame3D = (m: Squaris3DMode) => {
+    handleModeChange(m);
+    setView('game3d');
   };
 
   if (view === 'game') {
@@ -65,7 +70,7 @@ export function App() {
       difficulty={difficulty}
       onDifficultyChange={setDifficulty}
       onPlay={startGame}
-      onPlay3D={() => setView('game3d')}
+      onPlay3D={startGame3D}
     />
   );
 }

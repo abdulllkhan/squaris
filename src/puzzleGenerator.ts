@@ -1,5 +1,19 @@
 import { Container, Square, PuzzleData } from './types';
 
+// Returns the calendar-day key (YYYY-MM-DD) for the given Date in *local time*.
+// Used as the seed for daily puzzles so every player on the same calendar day
+// gets the same puzzle, regardless of when on that day they open the game.
+//
+// Local time (not UTC) is intentional: a player in NY at 11pm and a player in
+// NY at 1am see the same date string for "today" rather than crossing a UTC
+// midnight mid-evening.
+export function dailyPuzzleKey(date: Date = new Date()): string {
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, '0');
+  const day = String(date.getDate()).padStart(2, '0');
+  return `${year}-${month}-${day}`;
+}
+
 export class PuzzleGenerator {
   private static seededRandom(seed: number): () => number {
     let x = Math.sin(seed) * 10000;

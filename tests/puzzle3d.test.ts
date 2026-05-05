@@ -316,6 +316,29 @@ describe('dateToSeed', () => {
   });
 });
 
+describe('uniqueOrientations normalisation', () => {
+  it('translates a non-origin-anchored shape to start at (0,0,0) after normalisation', () => {
+    // Shape that does NOT start at (0,0,0): cells at (5, 5, 5) and (5, 6, 5).
+    // After normalisation, min x/y/z should be 0.
+    const orientations = uniqueOrientations([[5, 5, 5], [5, 6, 5]]);
+    for (const o of orientations) {
+      const xs = o.map(c => c[0]);
+      const ys = o.map(c => c[1]);
+      const zs = o.map(c => c[2]);
+      expect(Math.min(...xs)).toBe(0);
+      expect(Math.min(...ys)).toBe(0);
+      expect(Math.min(...zs)).toBe(0);
+    }
+  });
+
+  it('produces the same orientation set for translation-equivalent inputs', () => {
+    const a = uniqueOrientations([[0, 0, 0], [1, 0, 0]]);
+    const b = uniqueOrientations([[10, 5, 3], [11, 5, 3]]);
+    const keyOf = (o: Vec3[][]) => o.map(c => c.map(v => v.join(',')).sort().join('|')).sort().join(';');
+    expect(keyOf(a)).toBe(keyOf(b));
+  });
+});
+
 describe('uniqueOrientations', () => {
   const expectations: Array<[string, Vec3[], number]> = [
     ['cube',     [[0, 0, 0]],                                          1],

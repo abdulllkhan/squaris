@@ -25,7 +25,8 @@ import {
   rotateOrientationAroundAxis,
 } from '../puzzle3d';
 
-export type Squaris3DMode = 'cubes' | 'bent';
+export type { Squaris3DMode } from '../lib/preferences';
+import type { Squaris3DMode } from '../lib/preferences';
 
 const GRID = 4;
 const CELL = 1;

@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { Difficulty } from '../App';
 import { GameLogic } from '../gameLogic';
-import { PuzzleGenerator } from '../puzzleGenerator';
+import { PuzzleGenerator, dailyPuzzleKey } from '../puzzleGenerator';
 import { GameState, Square } from '../types';
 import { TopAppBar } from './TopAppBar';
 import { BottomNav } from './BottomNav';
@@ -26,10 +26,11 @@ interface DragState {
 }
 
 export function Game({ difficulty, onExit, onRestart }: Props) {
-  const [gameState, setGameState] = useState<GameState>(() => {
-    const seed = `${new Date().toISOString().split('T')[0]}-${Date.now()}`;
-    return GameLogic.createInitialGameState(PuzzleGenerator.generateDailyPuzzle(seed, difficulty));
-  });
+  const [gameState, setGameState] = useState<GameState>(() =>
+    GameLogic.createInitialGameState(
+      PuzzleGenerator.generateDailyPuzzle(dailyPuzzleKey(), difficulty),
+    ),
+  );
   const [moveCount, setMoveCount] = useState(0);
   const [history, setHistory] = useState<GameState[]>([]);
   const [elapsed, setElapsed] = useState(0);

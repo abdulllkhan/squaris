@@ -212,5 +212,91 @@ describe('GameLogic', () => {
       expect(GameLogic.snapToGrid(0, 0, cellSize)).toEqual({ x: 0, y: 0 });
       expect(GameLogic.snapToGrid(75, 125, cellSize)).toEqual({ x: 2, y: 3 });
     });
+
+    it('handles exact half-cell positions per Math.round semantics', () => {
+      // Math.round of x.5 rounds toward +∞ in JS — these are spelt out so a
+      // future change to snapping (e.g. floor) is caught.
+      expect(GameLogic.snapToGrid(25, 0, 50)).toEqual({ x: 1, y: 0 });
+      expect(GameLogic.snapToGrid(24.99, 0, 50)).toEqual({ x: 0, y: 0 });
+    });
+  });
+
+  describe('placement / removal no-op paths', () => {
+    it('placeSquare returns the same state when squareId does not exist', () => {
+      const next = GameLogic.placeSquare(gameState, -999, 0, 0);
+      expect(next).toBe(gameState);
+    });
+
+    it('placeSquare returns the same state when the cell would overlap', () => {
+      const square = samplePuzzle.squares[0];
+      const placedOnce = GameLogic.placeSquare(gameState, square.id, 0, 0);
+      const second = samplePuzzle.squares.find(s => s.id !== square.id)!;
+      const placedTwice = GameLogic.placeSquare(placedOnce, second.id, 0, 0);
+      // Second placement should be a no-op because the cell is taken.
+      expect(placedTwice).toBe(placedOnce);
+    });
+
+    it('removeSquare returns the same state when squareId does not exist', () => {
+      const next = GameLogic.removeSquare(gameState, -999);
+      expect(next).toBe(gameState);
+    });
+
+    it('removeSquare returns the same state when the square is not placed yet', () => {
+      const square = samplePuzzle.squares[0];
+      // Square has not been placed, so .placed is false.
+      const next = GameLogic.removeSquare(gameState, square.id);
+      expect(next).toBe(gameState);
+    });
+
+    it('removeSquare clears isCompleted when undoing the last placement', () => {
+      // Place one piece — sample puzzles have many pieces, so this won't
+      // actually complete the puzzle, but isCompleted should be false either way
+      const square = samplePuzzle.squares[0];
+      let state = GameLogic.placeSquare(gameState, square.id, 0, 0);
+      // Forge a completed flag, then verify removeSquare clears it.
+      state = { ...state, isCompleted: true };
+      const after = GameLogic.removeSquare(state, square.id);
+      expect(after.isCompleted).toBe(false);
+    });
+  });
+
+  describe('out-of-bounds guards', () => {
+    it('isGridCellOccupied treats x === width as out of bounds (= true)', () => {
+      const w = samplePuzzle.container.width;
+      expect(GameLogic.isGridCellOccupied(gameState, w, 0)).toBe(true);
+    });
+
+    it('isGridCellOccupied treats y === height as out of bounds (= true)', () => {
+      const h = samplePuzzle.container.height;
+      expect(GameLogic.isGridCellOccupied(gameState, 0, h)).toBe(true);
+    });
+
+    it('getSquareAt returns null at the right edge (x === width)', () => {
+      const w = samplePuzzle.container.width;
+      expect(GameLogic.getSquareAt(gameState, w, 0)).toBeNull();
+    });
+
+    it('canPlaceSquare rejects placement that exactly equals container width', () => {
+      const square = samplePuzzle.squares.find(s => s.size === 1) ?? samplePuzzle.squares[0];
+      const w = samplePuzzle.container.width;
+      // x = w - size + 1 means the right edge would land at column w + 1, OOB.
+      expect(GameLogic.canPlaceSquare(gameState, square, w - square.size + 1, 0)).toBe(false);
+      expect(GameLogic.canPlaceSquare(gameState, square, w - square.size, 0)).toBe(true);
+    });
+  });
+
+  describe('formatTime edge cases', () => {
+    it('formats zero', () => {
+      expect(GameLogic.formatTime(0)).toBe('00:00');
+    });
+    it('floors sub-second milliseconds', () => {
+      expect(GameLogic.formatTime(999)).toBe('00:00');
+      expect(GameLogic.formatTime(1000)).toBe('00:01');
+      expect(GameLogic.formatTime(1999)).toBe('00:01');
+    });
+    it('handles times beyond an hour without rolling over to hours', () => {
+      // The current format is mm:ss with no hour component, so 1h = 60:00.
+      expect(GameLogic.formatTime(60 * 60 * 1000)).toBe('60:00');
+    });
   });
 });

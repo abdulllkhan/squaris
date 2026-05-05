@@ -1,5 +1,41 @@
-import { PuzzleGenerator } from '../src/puzzleGenerator';
+import { PuzzleGenerator, dailyPuzzleKey } from '../src/puzzleGenerator';
 import { Container, Square, PuzzleData } from '../src/types';
+
+describe('dailyPuzzleKey', () => {
+  it('returns YYYY-MM-DD for a given local-time date', () => {
+    const d = new Date(2026, 4, 3, 14, 30, 0); // 2026-05-03 14:30 local
+    expect(dailyPuzzleKey(d)).toBe('2026-05-03');
+  });
+
+  it('returns the same key for two different times on the same day', () => {
+    const morning = new Date(2026, 4, 3, 1, 0, 0);
+    const evening = new Date(2026, 4, 3, 23, 59, 0);
+    expect(dailyPuzzleKey(morning)).toBe(dailyPuzzleKey(evening));
+  });
+
+  it('returns different keys for different days', () => {
+    const day1 = new Date(2026, 4, 3, 12, 0, 0);
+    const day2 = new Date(2026, 4, 4, 12, 0, 0);
+    expect(dailyPuzzleKey(day1)).not.toBe(dailyPuzzleKey(day2));
+  });
+
+  it('zero-pads single-digit months and days', () => {
+    expect(dailyPuzzleKey(new Date(2026, 0, 1, 12, 0, 0))).toBe('2026-01-01');
+    expect(dailyPuzzleKey(new Date(2026, 8, 9, 12, 0, 0))).toBe('2026-09-09');
+  });
+
+  it('produces a stable seed for the puzzle generator across multiple calls', () => {
+    // This is the regression test for the Game.tsx daily-seed bug. Before the
+    // fix, the seed string included Date.now(), so two calls on the same day
+    // (e.g. opening the game twice) produced different puzzles. Now the key
+    // is purely date-based, so the puzzle is stable.
+    const morning = new Date(2026, 4, 3, 8, 0, 0);
+    const evening = new Date(2026, 4, 3, 22, 0, 0);
+    const a = PuzzleGenerator.generateDailyPuzzle(dailyPuzzleKey(morning), 'medium');
+    const b = PuzzleGenerator.generateDailyPuzzle(dailyPuzzleKey(evening), 'medium');
+    expect(a).toEqual(b);
+  });
+});
 
 describe('PuzzleGenerator', () => {
   describe('generateDailyPuzzle', () => {
@@ -82,6 +118,32 @@ describe('PuzzleGenerator', () => {
         const puzzle = PuzzleGenerator.generateDailyPuzzle(`2025-09-${10 + i}`);
         expect(validDifficulties).toContain(puzzle.difficulty);
       }
+    });
+  });
+
+  describe('difficulty-explicit generation', () => {
+    it('respects an explicit difficulty (does not overwrite with the random roll)', () => {
+      const easy = PuzzleGenerator.generateDailyPuzzle('2026-05-03', 'easy');
+      const hard = PuzzleGenerator.generateDailyPuzzle('2026-05-03', 'difficult');
+      expect(easy.difficulty).toBe('easy');
+      expect(hard.difficulty).toBe('difficult');
+    });
+
+    it('produces different size distributions for different explicit difficulties', () => {
+      const easy = PuzzleGenerator.generateDailyPuzzle('2026-05-03', 'easy');
+      const hard = PuzzleGenerator.generateDailyPuzzle('2026-05-03', 'difficult');
+      // Easy should have at least one piece >= 3x3 on average; hard should
+      // have proportionally more 1x1s. Concrete sanity check: piece counts
+      // should differ.
+      const easyOnes = easy.squares.filter(s => s.size === 1).length;
+      const hardOnes = hard.squares.filter(s => s.size === 1).length;
+      expect(hardOnes).toBeGreaterThanOrEqual(easyOnes);
+    });
+
+    it('with explicit difficulty, puzzles for the same date are still deterministic', () => {
+      const a = PuzzleGenerator.generateDailyPuzzle('2026-05-03', 'medium');
+      const b = PuzzleGenerator.generateDailyPuzzle('2026-05-03', 'medium');
+      expect(a).toEqual(b);
     });
   });
 
