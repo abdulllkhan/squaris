@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { Difficulty } from '../App';
-import type { Squaris3DMode } from '../lib/preferences';
+import type { Squaris3DMode, Game2DBentDifficulty } from '../lib/preferences';
 import { TopAppBar } from './TopAppBar';
 import { sfx } from '../lib/sound';
 
@@ -9,9 +9,20 @@ interface Props {
   onDifficultyChange: (d: Difficulty) => void;
   onPlay: (d: Difficulty) => void;
   onPlay3D: (mode: Squaris3DMode) => void;
+  onPlay2DBent: (d: Game2DBentDifficulty) => void;
+  onBent2DDifficultyChange: (d: Game2DBentDifficulty) => void;
+  bent2dDifficulty: Game2DBentDifficulty;
 }
 
-export function MainMenu({ difficulty, onDifficultyChange, onPlay, onPlay3D }: Props) {
+export function MainMenu({
+  difficulty,
+  onDifficultyChange,
+  onPlay,
+  onPlay3D,
+  onPlay2DBent,
+  onBent2DDifficultyChange,
+  bent2dDifficulty,
+}: Props) {
   const [modal, setModal] = useState<'settings' | 'about' | null>(null);
 
   const today = new Date().toLocaleDateString('en-US', {
@@ -51,7 +62,7 @@ export function MainMenu({ difficulty, onDifficultyChange, onPlay, onPlay3D }: P
         </div>
 
         {/* Three game cards */}
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4 w-full">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 w-full">
           {/* Card 1 — Squaris 2D (the original) */}
           <GameCard
             title="Squaris"
@@ -123,6 +134,50 @@ export function MainMenu({ difficulty, onDifficultyChange, onPlay, onPlay3D }: P
               onPlay3D('bent');
             }}
           />
+
+          {/* Card 4 — Squaris Bent (2D) */}
+          <GameCard
+            title="Squaris Bent"
+            tagline="2D · Tetris pieces"
+            description={
+              bent2dDifficulty === 'hard'
+                ? 'Hard mode: pieces appear in mirrored orientations. Rotation alone is not enough — you must flip pieces too.'
+                : 'Pack bent polyominoes (L, T, S, Z) into a flat grid. Rotate to fit; flips help in Hard mode.'
+            }
+            timeEstimate="~5 min"
+            difficultyLabel={bent2dDifficulty.toUpperCase()}
+            badge={bent2dDifficulty === 'hard' ? 'CHIRAL' : undefined}
+            preview={<Preview2DBent />}
+            ctaLabel="Play Bent"
+            onPlay={() => {
+              sfx.click();
+              onPlay2DBent(bent2dDifficulty);
+            }}
+          >
+            <div className="flex w-full bg-surface border border-divider rounded-lg overflow-hidden h-10 mt-2">
+              {(['easy', 'medium', 'hard'] as Game2DBentDifficulty[]).map((d, i) => {
+                const isActive = bent2dDifficulty === d;
+                return (
+                  <button
+                    key={d}
+                    onClick={() => {
+                      sfx.click();
+                      onBent2DDifficultyChange(d);
+                    }}
+                    className={`flex-1 text-[10px] font-bold transition-colors ${
+                      i < 2 ? 'border-r border-divider' : ''
+                    } ${
+                      isActive
+                        ? 'text-accent bg-divider'
+                        : 'text-text-muted hover:bg-divider/50'
+                    }`}
+                  >
+                    {d.toUpperCase()}
+                  </button>
+                );
+              })}
+            </div>
+          </GameCard>
         </div>
 
         {/* Settings + About */}
@@ -309,6 +364,45 @@ function Preview3DCubes() {
   );
 }
 
+function Preview2DBent() {
+  // Flat 2D mini-grid showing tetrominoes packed in. Demonstrates bent shapes
+  // and the chirality colour scheme used by the game.
+  const cells: Array<{ x: number; y: number; w: number; h: number; c: string }> = [
+    // L-tromino (green) — top-left
+    { x: 0, y: 0, w: 1, h: 1, c: '#6FCF97' },
+    { x: 0, y: 1, w: 1, h: 1, c: '#6FCF97' },
+    { x: 1, y: 1, w: 1, h: 1, c: '#6FCF97' },
+    // T-tetromino (purple) — top-right
+    { x: 2, y: 0, w: 3, h: 1, c: '#BB6BD9' },
+    { x: 3, y: 1, w: 1, h: 1, c: '#BB6BD9' },
+    // L-tetromino (yellow) — bottom-left
+    { x: 0, y: 2, w: 1, h: 1, c: '#F2C94C' },
+    { x: 0, y: 3, w: 2, h: 1, c: '#F2C94C' },
+    // S-tetromino (red) — bottom-right
+    { x: 2, y: 2, w: 2, h: 1, c: '#EB5757' },
+    { x: 3, y: 3, w: 2, h: 1, c: '#EB5757' },
+  ];
+  const cell = 18;
+  return (
+    <div className="relative" style={{ width: 5 * cell, height: 4 * cell }}>
+      {cells.map((t, i) => (
+        <div
+          key={i}
+          className="absolute rounded-[2px]"
+          style={{
+            left: t.x * cell,
+            top: t.y * cell,
+            width: t.w * cell - 2,
+            height: t.h * cell - 2,
+            background: t.c,
+            boxShadow: 'inset 0 0 0 1px rgba(0,0,0,0.35)',
+          }}
+        />
+      ))}
+    </div>
+  );
+}
+
 function Preview3DBent() {
   // Same wireframe cube, but with the four bent-piece colours represented.
   return (
@@ -422,13 +516,14 @@ function AboutModal({ onClose }: { onClose: () => void }) {
   return (
     <ModalShell title="About Squaris" onClose={onClose}>
       <div className="space-y-3 text-sm text-text">
-        <p>Three daily puzzles. Pack pieces into the container with no gaps or overlaps.</p>
+        <p>Four daily puzzles. Pack pieces into the container with no gaps or overlaps.</p>
         <div>
-          <p className="label-caps text-accent mb-1">The three games</p>
+          <p className="label-caps text-accent mb-1">The four games</p>
           <ul className="space-y-1 text-text">
             <li>• <strong className="text-white">Squaris</strong> — flat 2D grid, square pieces only</li>
             <li>• <strong className="text-white">Squaris 3D · Cubes</strong> — 4×4×4 box, rectangular polycubes</li>
             <li>• <strong className="text-white">Squaris 3D · Bent</strong> — 4×4×4 box, Tetris-shaped polycubes with rotations</li>
+            <li>• <strong className="text-white">Squaris Bent (2D)</strong> — bent polyominoes (L, T, S, Z) on a flat grid; Hard mode adds reflections (chirality) and requires flip controls</li>
           </ul>
         </div>
         <p className="text-text-muted text-xs pt-2">New puzzle every day. Same puzzle for every player.</p>

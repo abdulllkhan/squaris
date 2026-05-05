@@ -1,4 +1,8 @@
-import { parseDifficulty, parseMode3D } from '../src/lib/preferences';
+import {
+  parseDifficulty,
+  parseMode3D,
+  parseBent2DDifficulty,
+} from '../src/lib/preferences';
 
 describe('parseDifficulty', () => {
   it('returns valid difficulties unchanged', () => {
@@ -25,6 +29,22 @@ describe('parseDifficulty', () => {
 
   it('handles undefined the same as null', () => {
     expect(parseDifficulty(undefined)).toBe('medium');
+  });
+});
+
+describe('parseBent2DDifficulty', () => {
+  it('returns valid difficulties unchanged', () => {
+    expect(parseBent2DDifficulty('easy')).toBe('easy');
+    expect(parseBent2DDifficulty('medium')).toBe('medium');
+    expect(parseBent2DDifficulty('hard')).toBe('hard');
+  });
+
+  it("defaults to 'medium' on null/empty/garbage", () => {
+    expect(parseBent2DDifficulty(null)).toBe('medium');
+    expect(parseBent2DDifficulty('')).toBe('medium');
+    expect(parseBent2DDifficulty('difficult')).toBe('medium'); // 2D-Bent uses 'hard', not 'difficult'
+    expect(parseBent2DDifficulty('HARD')).toBe('medium');      // case-sensitive
+    expect(parseBent2DDifficulty(undefined)).toBe('medium');
   });
 });
 
