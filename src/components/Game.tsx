@@ -335,7 +335,7 @@ export function Game({ difficulty, onExit, onRestart }: Props) {
                   height: sq.size * cellSize,
                   visibility: dragging ? 'hidden' : 'visible',
                 }}
-                className={`absolute rounded-lg cursor-grab active:cursor-grabbing shadow-piece border-t border-l border-white/20 flex items-center justify-center ${pieceBgClass(sq.size)}`}
+                className={`absolute rounded-lg cursor-grab active:cursor-grabbing shadow-piece border-t border-l border-white/20 flex items-center justify-center touch-none ${pieceBgClass(sq.size)}`}
               >
                 {sq.size >= 2 && (
                   <span className="text-white/60 text-xs font-bold pointer-events-none select-none">
@@ -369,7 +369,7 @@ export function Game({ difficulty, onExit, onRestart }: Props) {
                       height: dim,
                       visibility: dragging ? 'hidden' : 'visible',
                     }}
-                    className={`shrink-0 rounded-lg cursor-grab active:cursor-grabbing shadow-piece border-t border-l border-white/20 flex items-center justify-center hover:scale-[1.04] transition-transform ${pieceBgClass(sq.size)}`}
+                    className={`shrink-0 rounded-lg cursor-grab active:cursor-grabbing shadow-piece border-t border-l border-white/20 flex items-center justify-center hover:scale-[1.04] transition-transform touch-none ${pieceBgClass(sq.size)}`}
                   >
                     {sq.size >= 2 && (
                       <span className="text-white/60 text-xs font-bold pointer-events-none select-none">

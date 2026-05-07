@@ -293,7 +293,7 @@ export function Game2DBent({ onExit, difficulty = 'medium', onDifficultyChange }
   const ghostColor = selectedType?.color ?? '#FF4500';
 
   return (
-    <div className="fixed inset-0 bg-surface text-on-surface flex flex-col overflow-hidden">
+    <div className="min-h-screen bg-surface text-on-surface flex flex-col">
       <header className="bg-surface border-b border-divider flex justify-between items-center w-full px-3 sm:px-6 h-14 sm:h-16 z-40 gap-2 sm:gap-3">
         <div className="flex items-center gap-2 sm:gap-5 min-w-0">
           <button
@@ -499,7 +499,7 @@ export function Game2DBent({ onExit, difficulty = 'medium', onDifficultyChange }
       </nav>
 
       {won && (
-        <div className="absolute inset-0 z-50 bg-surface/80 backdrop-blur-sm flex items-center justify-center">
+        <div className="fixed inset-0 z-50 bg-surface/80 backdrop-blur-sm flex items-center justify-center">
           <div className="bg-surface-elevated border border-divider rounded-2xl p-8 max-w-md mx-4 text-center shadow-2xl">
             <span className="material-symbols-outlined text-accent text-5xl mb-2">emoji_events</span>
             <h2 className="text-3xl font-black text-accent mb-2">Bent Complete</h2>

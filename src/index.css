@@ -4,10 +4,11 @@
 
 @layer base {
   html, body, #root {
-    height: 100%;
+    min-height: 100%;
     margin: 0;
     overscroll-behavior: none;
   }
+  html, body { height: auto; }
   body {
     background-color: #1A1A1B;
     background-image:
@@ -19,7 +20,12 @@
     -webkit-font-smoothing: antialiased;
     user-select: none;
     -webkit-user-select: none;
-    touch-action: none;
+    /* `manipulation` keeps touch scrolling/panning enabled while still
+       disabling the 300ms double-tap zoom delay. The previous `none` value
+       killed all mobile scrolling. Game surfaces that genuinely need to
+       suppress page scroll during drag (the 2D grid, the 3D canvas) opt
+       in locally with `touch-none` / `touch-action: none`. */
+    touch-action: manipulation;
   }
   .material-symbols-outlined {
     font-variation-settings: 'FILL' 0, 'wght' 500, 'GRAD' 0, 'opsz' 24;
