@@ -30,9 +30,13 @@ interface DifficultyConfig {
   label: string;
 }
 
+// All difficulties use the dihedral D₄ group so the player's flip controls
+// actually do something on chiral pieces (L, S). Under C₄ a flip lands on a
+// mirror orientation that isn't in the orientation list, making the H/V
+// buttons silently no-op.
 export const DIFFICULTY_CONFIG: Record<Game2DBentDifficulty, DifficultyConfig> = {
-  easy:   { width: 5, height: 5, group: 'C4', label: 'Easy' },
-  medium: { width: 7, height: 6, group: 'C4', label: 'Medium' },
+  easy:   { width: 5, height: 5, group: 'D4', label: 'Easy' },
+  medium: { width: 7, height: 6, group: 'D4', label: 'Medium' },
   hard:   { width: 8, height: 7, group: 'D4', label: 'Hard' },
 };
 
@@ -123,8 +127,19 @@ export function Game2DBent({ onExit, difficulty = 'medium', onDifficultyChange }
   const remainingForSelected = inventory.find(i => i.typeId === selectedTypeId)?.remaining ?? 0;
   const ghostValid = !!ghostPlacement && ghostPlacement.valid && remainingForSelected > 0;
 
-  const tryPlace = () => {
-    if (!ghostValid || !ghostPlacement) {
+  const placeAt = (cell: Vec2) => {
+    if (remainingForSelected === 0 || !selectedType) {
+      sfx.click();
+      return;
+    }
+    const placement = computeAutoPlacement2D(
+      selectedType.orientations[orientationIndex],
+      cell,
+      config.width,
+      config.height,
+      occupied,
+    );
+    if (!placement.valid) {
       sfx.click();
       return;
     }
@@ -133,7 +148,7 @@ export function Game2DBent({ onExit, difficulty = 'medium', onDifficultyChange }
       ...prev,
       {
         id: `placed-${placedIdRef.current++}`,
-        piece: { typeId: selectedTypeId, orientationIndex, position: ghostPlacement.origin },
+        piece: { typeId: selectedTypeId, orientationIndex, position: placement.origin },
       },
     ]);
     setInventory(inv =>
@@ -142,6 +157,14 @@ export function Game2DBent({ onExit, difficulty = 'medium', onDifficultyChange }
       ),
     );
     setHoverCell(null);
+  };
+
+  const tryPlace = () => {
+    if (!hoverCell) {
+      sfx.click();
+      return;
+    }
+    placeAt(hoverCell);
   };
 
   const removePiece = (id: string) => {
@@ -226,7 +249,23 @@ export function Game2DBent({ onExit, difficulty = 'medium', onDifficultyChange }
   const totalCells = config.width * config.height;
   const filledCells = occupied.size;
   const pct = Math.round((filledCells / totalCells) * 100);
-  const cellSize = 56;
+
+  // Responsive cell size — fits the grid into the available viewport on
+  // both phones and desktops. Header (~64), bottom controls (~190), and
+  // bottom nav (~64) eat ~320px of vertical space; allow some breathing
+  // room on top of that.
+  const [cellSize, setCellSize] = useState(56);
+  useEffect(() => {
+    const compute = () => {
+      const horizontal = (window.innerWidth - 24) / config.width;
+      const vertical = (window.innerHeight - 360) / config.height;
+      const size = Math.max(28, Math.min(64, Math.floor(Math.min(horizontal, vertical))));
+      setCellSize(size);
+    };
+    compute();
+    window.addEventListener('resize', compute);
+    return () => window.removeEventListener('resize', compute);
+  }, [config.width, config.height]);
 
   // Map placed piece's first cell → the placed record id, for click-to-remove.
   const placedById = useMemo(() => {
@@ -255,8 +294,8 @@ export function Game2DBent({ onExit, difficulty = 'medium', onDifficultyChange }
 
   return (
     <div className="fixed inset-0 bg-surface text-on-surface flex flex-col overflow-hidden">
-      <header className="bg-surface border-b border-divider flex justify-between items-center w-full px-4 sm:px-6 h-16 z-40 gap-3">
-        <div className="flex items-center gap-3 sm:gap-5 min-w-0">
+      <header className="bg-surface border-b border-divider flex justify-between items-center w-full px-3 sm:px-6 h-14 sm:h-16 z-40 gap-2 sm:gap-3">
+        <div className="flex items-center gap-2 sm:gap-5 min-w-0">
           <button
             onClick={onExit}
             className="text-text hover:text-white p-1.5 rounded-lg hover:bg-divider active:scale-95 transition-all flex-shrink-0"
@@ -264,7 +303,7 @@ export function Game2DBent({ onExit, difficulty = 'medium', onDifficultyChange }
           >
             <span className="material-symbols-outlined text-xl">arrow_back</span>
           </button>
-          <span className="text-xl sm:text-2xl font-black text-accent tracking-tight flex-shrink-0">
+          <span className="text-base sm:text-2xl font-black text-accent tracking-tight flex-shrink-0">
             Squaris Bent
           </span>
           <div className="hidden sm:block h-6 w-px bg-divider" />
@@ -273,26 +312,26 @@ export function Game2DBent({ onExit, difficulty = 'medium', onDifficultyChange }
           </span>
         </div>
 
-        <div className="flex items-center gap-3 flex-shrink-0">
+        <div className="flex items-center gap-2 sm:gap-3 flex-shrink-0">
           {onDifficultyChange && (
             <DifficultySegmented
               value={difficulty}
               onChange={onDifficultyChange}
             />
           )}
-          <div className="flex items-center gap-2 bg-surface-elevated px-3 py-1.5 rounded-full border border-divider">
-            <span className="material-symbols-outlined text-accent text-sm">analytics</span>
-            <span className="text-sm font-mono font-bold">
-              {filledCells}/{totalCells} · {pct}%
+          <div className="flex items-center gap-1.5 sm:gap-2 bg-surface-elevated px-2 sm:px-3 py-1 sm:py-1.5 rounded-full border border-divider">
+            <span className="material-symbols-outlined text-accent text-sm hidden sm:inline">analytics</span>
+            <span className="text-[11px] sm:text-sm font-mono font-bold tabular-nums">
+              {pct}%
             </span>
           </div>
         </div>
       </header>
 
-      <main className="flex-1 flex flex-col items-center justify-center gap-6 p-6 overflow-auto">
+      <main className="flex-1 flex flex-col items-center justify-center p-2 sm:p-6 overflow-auto">
         {/* The grid */}
         <div
-          className="relative bg-well border border-divider rounded-xl shadow-2xl"
+          className="relative bg-well border border-divider rounded-xl shadow-2xl flex-shrink-0 touch-none"
           style={{
             width: config.width * cellSize,
             height: config.height * cellSize,
@@ -322,13 +361,13 @@ export function Game2DBent({ onExit, difficulty = 'medium', onDifficultyChange }
               return (
                 <div
                   key={key}
-                  className="absolute cursor-pointer"
+                  className="absolute cursor-pointer touch-manipulation"
                   style={{ left: x * cellSize, top: y * cellSize, width: cellSize, height: cellSize }}
                   onMouseEnter={() => setHoverCell([x, y])}
                   onMouseLeave={() => setHoverCell(null)}
                   onClick={() => {
                     if (placedId) removePiece(placedId);
-                    else tryPlace();
+                    else placeAt([x, y]);
                   }}
                 >
                   {/* Placed piece cell */}
@@ -360,22 +399,27 @@ export function Game2DBent({ onExit, difficulty = 'medium', onDifficultyChange }
           )}
         </div>
 
-        {/* Bottom controls strip */}
-        <div className="flex items-end gap-4 px-5 py-3 bg-surface-elevated/85 backdrop-blur-md rounded-2xl border border-divider shadow-2xl max-w-full overflow-x-auto">
+      </main>
+
+      {/* Controls strip pinned just above the bottom nav. Same single-row
+          layout as before (Inventory · Rotate/Flip · Place) but anchored at
+          the bottom of the page instead of floating in the middle. */}
+      <div className="w-full flex justify-center px-2 sm:px-4 pb-2 pointer-events-none">
+        <div className="flex flex-wrap justify-center items-end gap-x-3 gap-y-2 sm:gap-4 px-3 sm:px-5 py-2 sm:py-3 bg-surface-elevated/85 backdrop-blur-md rounded-2xl border border-divider shadow-2xl max-w-full pointer-events-auto">
           {/* Inventory */}
-          <div className="flex flex-col gap-1.5">
+          <div className="flex flex-col gap-1 sm:gap-1.5 min-w-0">
             <span className="label-caps text-text-muted">Inventory</span>
-            <div className="flex gap-2">
+            <div className="flex gap-1.5 sm:gap-2 overflow-x-auto pb-1 -mx-1 px-1">
               {inventory.map(item => {
                 const active = item.typeId === selectedTypeId;
                 const out = item.remaining === 0;
                 const type = pieceTypes.find(t => t.id === item.typeId);
                 return (
-                  <div key={item.typeId} className="flex flex-col items-center gap-1">
+                  <div key={item.typeId} className="flex flex-col items-center gap-0.5 sm:gap-1 flex-shrink-0">
                     <button
                       onClick={() => !out && selectType(item.typeId)}
                       disabled={out}
-                      className={`relative w-14 h-14 rounded-xl border-2 flex items-center justify-center transition-all overflow-hidden p-1.5 ${
+                      className={`relative w-11 h-11 sm:w-14 sm:h-14 rounded-xl border-2 flex items-center justify-center transition-all overflow-hidden p-1 sm:p-1.5 ${
                         out
                           ? 'border-divider/40 bg-surface/40 opacity-30 cursor-not-allowed'
                           : active
@@ -384,10 +428,17 @@ export function Game2DBent({ onExit, difficulty = 'medium', onDifficultyChange }
                       }`}
                       title={item.label}
                     >
-                      {type && <PieceIcon2D cells={type.orientations[0]} color={item.color} />}
+                      {type && (
+                        <PieceIcon2D
+                          cells={
+                            type.orientations[active ? orientationIndex : 0]
+                          }
+                          color={item.color}
+                        />
+                      )}
                     </button>
                     <span
-                      className={`text-[12px] font-mono font-bold tabular-nums tracking-tight ${
+                      className={`text-[11px] sm:text-[12px] font-mono font-bold tabular-nums tracking-tight ${
                         out
                           ? 'text-text-muted/60 line-through'
                           : active
@@ -403,28 +454,28 @@ export function Game2DBent({ onExit, difficulty = 'medium', onDifficultyChange }
             </div>
           </div>
 
-          <div className="w-px h-12 bg-divider" />
+          <div className="hidden sm:block w-px h-12 bg-divider" />
 
           {/* Rotate / flip controls */}
-          <div className="flex flex-col items-center gap-1.5">
+          <div className="flex flex-col items-center gap-1 sm:gap-1.5">
             <span className="label-caps text-text-muted">Rotate</span>
             <div className="flex gap-1">
               <ControlButton label="↻ R" title="Rotate 90° clockwise (key: R)" onClick={() => applyRotation('cw')} />
               <ControlButton label="↺ R" title="Rotate 90° counter-clockwise (key: Shift+R)" onClick={() => applyRotation('ccw')} />
             </div>
-            <span className="label-caps text-text-muted mt-1">Flip</span>
+            <span className="label-caps text-text-muted mt-0.5 sm:mt-1">Flip</span>
             <div className="flex gap-1">
               <ControlButton label="⇄ H" title="Flip horizontal (key: H)" onClick={() => applyFlip('h')} />
               <ControlButton label="⇅ V" title="Flip vertical (key: V)" onClick={() => applyFlip('v')} />
             </div>
           </div>
 
-          <div className="w-px h-12 bg-divider" />
+          <div className="hidden sm:block w-px h-12 bg-divider" />
 
           <button
             onClick={tryPlace}
             disabled={!ghostValid}
-            className={`px-5 py-3 rounded-xl font-bold text-sm uppercase transition-all self-center ${
+            className={`px-4 sm:px-5 py-2.5 sm:py-3 rounded-xl font-bold text-sm uppercase transition-all self-center ${
               ghostValid
                 ? 'bg-accent text-white hover:bg-accent-hover shadow-accent-glow active:scale-95'
                 : 'bg-surface text-text-muted border border-divider cursor-not-allowed'
@@ -434,7 +485,7 @@ export function Game2DBent({ onExit, difficulty = 'medium', onDifficultyChange }
             Place
           </button>
         </div>
-      </main>
+      </div>
 
       <nav className="w-full flex justify-around items-center h-16 bg-surface border-t border-divider z-40">
         <button onClick={reset} className="flex flex-col items-center justify-center text-text-muted hover:text-white active:translate-y-0.5 transition-all">
@@ -519,7 +570,7 @@ function DifficultySegmented({
         <button
           key={d}
           onClick={() => d !== value && (sfx.click(), onChange(d))}
-          className={`px-3 py-1.5 text-[11px] uppercase font-bold tracking-wider transition-all ${
+          className={`px-2 sm:px-3 py-1 sm:py-1.5 text-[10px] sm:text-[11px] uppercase font-bold tracking-wider transition-all ${
             value === d
               ? 'bg-accent text-white shadow-accent-soft'
               : 'text-text-muted hover:text-white'

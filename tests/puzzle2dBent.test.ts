@@ -215,6 +215,29 @@ describe('generatePuzzle2DBent — properties', () => {
   });
 });
 
+describe('generatePuzzle2DBent — avoids 1×1 fillers', () => {
+  // Bent-piece generation should NEVER drop in single 1×1 unit pieces under
+  // normal conditions — those are tedious to play. Backtracking with
+  // cross-seed retries should always find a unit-free tiling on standard
+  // grid sizes.
+  const SIZES: Array<[number, number]> = [[5, 5], [7, 6], [8, 7]];
+  const SEEDS = [1, 17, 42, 137, 7919];
+
+  for (const [w, h] of SIZES) {
+    it.each(SEEDS)(`${w}×${h} under C4 (seed %p) contains no 1×1 unit pieces`, seed => {
+      const puzzle = generatePuzzle2DBent(w, h, seed, { group: 'C4' });
+      const units = puzzle.pieces.filter(p => p.typeId === 'unit').length;
+      expect(units).toBe(0);
+    });
+
+    it.each(SEEDS)(`${w}×${h} under D4 (seed %p) contains no 1×1 unit pieces`, seed => {
+      const puzzle = generatePuzzle2DBent(w, h, seed, { group: 'D4' });
+      const units = puzzle.pieces.filter(p => p.typeId === 'unit').length;
+      expect(units).toBe(0);
+    });
+  }
+});
+
 describe('generatePuzzle2DBent — D4 actually uses reflections', () => {
   // A D4-mode generator should sometimes place pieces in reflected
   // orientations. Specifically, an L-tetromino orientation that's outside

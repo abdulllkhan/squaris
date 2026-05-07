@@ -227,25 +227,52 @@ export interface GenerateOptions2D {
   group?: SymmetryGroup;
   weights?: Record<string, number>;
   pieceTypes?: ResolvedPieceType2D[];
+  /** Retry attempts before allowing the 1×1 fallback. Default 200. */
+  maxAttempts?: number;
 }
 
-export function generatePuzzle2DBent(
+// Mix the user-provided seed with the attempt index to get a deterministic
+// per-attempt seed. Each attempt re-runs the whole greedy generator so a
+// failure to place a non-unit piece is recoverable: instead of dropping in
+// a 1×1 we restart with a fresh random stream.
+function mixSeed(seed: number, attempt: number): number {
+  let x = (seed ^ Math.imul(attempt + 1, 2654435761)) >>> 0;
+  x = Math.imul(x ^ (x >>> 16), 2246822507) >>> 0;
+  x = Math.imul(x ^ (x >>> 13), 3266489909) >>> 0;
+  x = (x ^ (x >>> 16)) >>> 0;
+  return x || 1;
+}
+
+// Weighted shuffle: returns a permutation of `items` whose order is biased
+// by `weight(item)`. Uses the well-known Efraimidis–Spirakis trick — assign
+// each item a key u^(1/w) and sort descending.
+function weightedShuffle<T>(
+  items: T[],
+  weight: (t: T) => number,
+  random: () => number,
+): T[] {
+  const keys = items.map(it => {
+    const w = Math.max(weight(it), 1e-9);
+    const u = Math.max(random(), 1e-12);
+    return { it, key: Math.pow(u, 1 / w) };
+  });
+  keys.sort((a, b) => b.key - a.key);
+  return keys.map(k => k.it);
+}
+
+// DFS backtracking generator. Cells are filled in raster order; at each
+// empty cell we try every (type, orientation, anchor) combination in a
+// weighted-random order. If no bent placement leads to a complete tiling,
+// returns null. Bounded by a node-visit limit so an unsolvable shuffle
+// can't burn unbounded time.
+function attemptBacktrack(
   width: number,
   height: number,
-  seed: number,
-  opts: GenerateOptions2D = {},
-): Puzzle2D {
-  const group = opts.group ?? 'C4';
-  const types = opts.pieceTypes ?? buildPieceLibrary(group);
-  const weights =
-    opts.weights ?? (group === 'D4' ? D4_DEFAULT_WEIGHTS : C4_DEFAULT_WEIGHTS);
-
-  const unit = types.find(t => t.id === 'unit');
-  if (!unit) {
-    throw new Error('Piece library must include a "unit" type as fallback');
-  }
-
-  const random = seededRandom(seed);
+  random: () => number,
+  bentTypes: ResolvedPieceType2D[],
+  weights: Record<string, number>,
+  maxNodes: number,
+): PuzzlePiece2D[] | null {
   const occupied = new Set<string>();
   const pieces: PuzzlePiece2D[] = [];
 
@@ -269,31 +296,97 @@ export function generatePuzzle2DBent(
     return null;
   };
 
-  const totalWeight = types.reduce((s, t) => s + (weights[t.id] ?? 0), 0);
-  const pickType = (): ResolvedPieceType2D => {
-    if (totalWeight <= 0) return unit;
-    let r = random() * totalWeight;
-    for (const t of types) {
-      r -= weights[t.id] ?? 0;
-      if (r <= 0) return t;
+  let nodes = 0;
+  const fill = (): boolean => {
+    if (++nodes > maxNodes) return false;
+    const empty = findFirstEmpty();
+    if (!empty) return true;
+
+    const typeOrder = weightedShuffle(
+      bentTypes,
+      t => weights[t.id] ?? 0.001,
+      random,
+    );
+    for (const type of typeOrder) {
+      const orientationOrder = shuffle(
+        type.orientations.map((_, i) => i),
+        random,
+      );
+      for (const oi of orientationOrder) {
+        const orientation = type.orientations[oi];
+        const cellOrder = shuffle(
+          orientation.map((_, i) => i),
+          random,
+        );
+        for (const ci of cellOrder) {
+          const [cx, cy] = orientation[ci];
+          const origin: Vec2 = [empty[0] - cx, empty[1] - cy];
+          const cells = orientation.map(([x, y]) => [
+            x + origin[0],
+            y + origin[1],
+          ] as Vec2);
+          if (!isValid(cells)) continue;
+          for (const [x, y] of cells) occupied.add(cellKey2D(x, y));
+          pieces.push({
+            typeId: type.id,
+            orientationIndex: oi,
+            position: origin,
+          });
+          if (fill()) return true;
+          pieces.pop();
+          for (const [x, y] of cells) occupied.delete(cellKey2D(x, y));
+          if (nodes > maxNodes) return false;
+        }
+      }
     }
-    return unit;
+    return false;
   };
 
-  const tryPlace = (
-    empty: Vec2,
-    type: ResolvedPieceType2D,
-  ): { orientationIndex: number; position: Vec2; cells: Vec2[] } | null => {
+  return fill() ? pieces : null;
+}
+
+// Greedy fallback that allows 1×1 unit pieces. Always succeeds because the
+// unit piece fits at any empty cell. Used only when every backtracking
+// attempt has timed out — extremely rare for the standard grid sizes.
+function attemptGreedyWithUnit(
+  width: number,
+  height: number,
+  random: () => number,
+  types: ResolvedPieceType2D[],
+  weights: Record<string, number>,
+  unit: ResolvedPieceType2D,
+): PuzzlePiece2D[] {
+  const occupied = new Set<string>();
+  const pieces: PuzzlePiece2D[] = [];
+
+  const inBounds = (x: number, y: number) =>
+    x >= 0 && x < width && y >= 0 && y < height;
+
+  const isValid = (cells: Vec2[]): boolean => {
+    for (const [x, y] of cells) {
+      if (!inBounds(x, y)) return false;
+      if (occupied.has(cellKey2D(x, y))) return false;
+    }
+    return true;
+  };
+
+  const findFirstEmpty = (): Vec2 | null => {
+    for (let y = 0; y < height; y++) {
+      for (let x = 0; x < width; x++) {
+        if (!occupied.has(cellKey2D(x, y))) return [x, y];
+      }
+    }
+    return null;
+  };
+
+  const tryPlace = (empty: Vec2, type: ResolvedPieceType2D) => {
     const orientationOrder = shuffle(
       type.orientations.map((_, i) => i),
       random,
     );
     for (const oi of orientationOrder) {
       const orientation = type.orientations[oi];
-      const cellOrder = shuffle(
-        orientation.map((_, i) => i),
-        random,
-      );
+      const cellOrder = shuffle(orientation.map((_, i) => i), random);
       for (const ci of cellOrder) {
         const [cx, cy] = orientation[ci];
         const origin: Vec2 = [empty[0] - cx, empty[1] - cy];
@@ -301,28 +394,27 @@ export function generatePuzzle2DBent(
           x + origin[0],
           y + origin[1],
         ] as Vec2);
-        if (isValid(cells)) {
-          return { orientationIndex: oi, position: origin, cells };
-        }
+        if (isValid(cells)) return { orientationIndex: oi, position: origin, cells };
       }
     }
     return null;
   };
 
+  const bentTypes = types.filter(t => t.id !== 'unit');
   while (true) {
     const empty = findFirstEmpty();
     if (!empty) break;
-
-    const chosen = pickType();
-    let placedType = chosen;
-    let result = tryPlace(empty, chosen);
-    if (!result && chosen.id !== 'unit') {
-      placedType = unit;
-      result = tryPlace(empty, unit);
+    let placedType: ResolvedPieceType2D | null = null;
+    let result = null as ReturnType<typeof tryPlace>;
+    const order = weightedShuffle(bentTypes, t => weights[t.id] ?? 0.001, random);
+    for (const t of order) {
+      const r = tryPlace(empty, t);
+      if (r) { placedType = t; result = r; break; }
     }
-    if (!result) {
-      // Unreachable: unit always fits at any empty cell.
-      throw new Error(`Failed to place unit fallback at ${empty.join(',')}`);
+    if (!result || !placedType) {
+      const r = tryPlace(empty, unit)!;
+      placedType = unit;
+      result = r;
     }
     for (const [x, y] of result.cells) occupied.add(cellKey2D(x, y));
     pieces.push({
@@ -331,7 +423,50 @@ export function generatePuzzle2DBent(
       position: result.position,
     });
   }
+  return pieces;
+}
 
+export function generatePuzzle2DBent(
+  width: number,
+  height: number,
+  seed: number,
+  opts: GenerateOptions2D = {},
+): Puzzle2D {
+  const group = opts.group ?? 'C4';
+  const types = opts.pieceTypes ?? buildPieceLibrary(group);
+  const weights =
+    opts.weights ?? (group === 'D4' ? D4_DEFAULT_WEIGHTS : C4_DEFAULT_WEIGHTS);
+  const maxAttempts = opts.maxAttempts ?? 50;
+
+  const unit = types.find(t => t.id === 'unit');
+  if (!unit) {
+    throw new Error('Piece library must include a "unit" type as fallback');
+  }
+
+  const bentTypes = types.filter(t => t.id !== 'unit');
+
+  // Try DFS backtracking up to `maxAttempts` times with different sub-seeds.
+  // Each attempt refuses to use the 1×1 unit piece, so a successful return
+  // is guaranteed to be a unit-free tiling. If every attempt times out
+  // (which is extremely rare on the standard sizes), fall back to a greedy
+  // pass that permits units so the player still gets a playable puzzle.
+  const NODES_PER_ATTEMPT = 50_000;
+  for (let attempt = 0; attempt < maxAttempts; attempt++) {
+    const subSeed = mixSeed(seed, attempt);
+    const random = seededRandom(subSeed);
+    const pieces = attemptBacktrack(
+      width,
+      height,
+      random,
+      bentTypes,
+      weights,
+      NODES_PER_ATTEMPT,
+    );
+    if (pieces) return { width, height, pieces };
+  }
+
+  const random = seededRandom(seed);
+  const pieces = attemptGreedyWithUnit(width, height, random, types, weights, unit);
   return { width, height, pieces };
 }
 
